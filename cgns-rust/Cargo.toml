@@ -1,0 +1,14 @@
+[package]
+authors = ["Arthur Woimbée <awoimbee@extrality.ai>"]
+name = "cgns-rust"
+version = "0.0.2"
+edition = "2021"
+description = "Wrapper around cgns-sys."
+repository = "https://github.com/extrality/cgns-rust"
+
+[dependencies]
+cgns-sys = { path = "../cgns-sys" }
+anyhow = "1.0.64"
+thiserror = "1.0.0"
+num_enum = "0.5.7"
+heapless = "0.7.16"

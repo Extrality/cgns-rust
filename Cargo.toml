@@ -1,0 +1,7 @@
+[workspace]
+
+members = [
+    "cgns-sys",
+    "cgns-rust",
+]
+

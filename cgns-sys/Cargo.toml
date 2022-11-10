@@ -1,0 +1,16 @@
+[package]
+authors = ["Arthur Woimbée <awoimbee@extrality.ai>"]
+build = "build.rs"
+name = "cgns-sys"
+version = "0.0.1"
+edition = "2021"
+description = "Bindings to cgns."
+repository = "https://github.com/extrality/cgns-rust"
+
+[features]
+# Static linking is preferred since distributions still package 32bit CGNS bins
+dynamic = []
+
+[build-dependencies]
+bindgen = "^0.61"
+cmake = "0.1"
