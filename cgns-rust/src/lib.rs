@@ -7,6 +7,8 @@ mod utils;
 pub mod file;
 pub mod traits;
 
+pub use cgns_sys;
+
 /// TODO: Force users to instanciate [`Library`] to lock CGNS to a single thread
 /// (pcgns is out of scope).
 pub struct Library {} // TODO
