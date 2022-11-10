@@ -1,9 +1,9 @@
+pub mod arbitrary_grid_motion;
 pub mod elements;
 pub mod flow_solution;
 pub mod grid_coordinate;
-pub mod zone_grid_connectivity;
 pub mod rigid_grid_motion;
-pub mod arbitrary_grid_motion;
+pub mod zone_grid_connectivity;
 
 use std::ffi;
 
@@ -13,7 +13,7 @@ use cgns_sys::*;
 use self::elements::Element;
 use self::flow_solution::FlowSolution;
 use self::grid_coordinate::GridCoordinates;
-use crate::traits::{CGNSNode, CGNSParent, CGNSNodeIterator};
+use crate::traits::{CGNSNode, CGNSNodeIterator, CGNSParent};
 
 use super::Base;
 use crate::utils::{ier_cg_fn, CGNSError, CGIO_NAME_BUFFER_LENGTH};

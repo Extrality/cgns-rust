@@ -1,4 +1,4 @@
-use cgns_rust::traits::{CGNSParent};
+use cgns_rust::traits::CGNSParent;
 use cgns_rust::{self};
 
 // Used for testing during alpha versions development
@@ -12,11 +12,12 @@ fn main() {
             println!("  {}", z.name);
             for elem in z.iter_elements().unwrap() {
                 println!("    E {} ({:?})", elem.name, elem.elem_type);
-                if format!("{:?}", elem.elem_type) == "NFACE_n" || format!("{:?}", elem.elem_type) == "NGON_n" {
+                if format!("{:?}", elem.elem_type) == "NFACE_n"
+                    || format!("{:?}", elem.elem_type) == "NGON_n"
+                {
                     let txt = format!("{:?}", elem.read().unwrap());
                     println!("{}", &txt[0..200]);
                 }
-
             }
             // for grid in z.iter_grid_coordinates().unwrap() {
             //     println!("    G {}", grid.name);

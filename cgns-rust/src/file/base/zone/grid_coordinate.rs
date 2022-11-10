@@ -57,7 +57,6 @@ impl<'a> CGNSNode<'a> for GridCoordinates<'a> {
             Some(bounding_box)
         };
 
-
         Ok(GridCoordinates {
             name,
             bounding_box,

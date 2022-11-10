@@ -21,7 +21,7 @@ pub struct File {
     /// File ID
     desc: ffi::c_int,
     /// File CGNS version
-    pub version: f32
+    pub version: f32,
 }
 
 #[repr(u32)]
@@ -50,7 +50,10 @@ impl File {
         //     ier_cg_fn!(cg_add_path(cg_link_search_path.as_ptr()))?;
         // }
 
-        Ok(Self { desc: cg_fn, version })
+        Ok(Self {
+            desc: cg_fn,
+            version,
+        })
     }
 }
 

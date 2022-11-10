@@ -5,11 +5,10 @@ use std::ffi;
 use anyhow::{anyhow, Result};
 use cgns_sys::*;
 
-use crate::traits::{CGNSNode};
+use crate::traits::CGNSNode;
 use crate::utils::{ier_cg_fn, CGNSError, CGIO_NAME_BUFFER_LENGTH};
 
 use super::Zone;
-
 
 #[derive(Debug, Clone)]
 /// CGNS node `Elements_t`
@@ -43,14 +42,14 @@ pub struct InlineNConnectivity(Vec<i64>);
 #[derive(Debug, Clone)]
 pub struct NConnectivity {
     connectivity: Vec<i64>,
-    offsets: Vec<i64>
+    offsets: Vec<i64>,
 }
 
 impl Connectivity {
     pub fn to_vtk(&self) {
         match self {
             Self::OldNGON(_) => (),
-            _ => ()
+            _ => (),
         };
 
         // cells (inline connectivity)
@@ -76,10 +75,18 @@ impl<'a> Element<'a> {
             (ElementType_t::MIXED, false) => Ok(Connectivity::MIXED(self.read_nconnectivity()?)),
             (ElementType_t::NGON_n, false) => Ok(Connectivity::NGON(self.read_nconnectivity()?)),
             (ElementType_t::NFACE_n, false) => Ok(Connectivity::NFACE(self.read_nconnectivity()?)),
-            (ElementType_t::NGON_n, true) => Ok(Connectivity::OldNGON(self.read_inline_nconnectivity()?)),
-            (ElementType_t::NFACE_n, true) => Ok(Connectivity::OldNFACE(self.read_inline_nconnectivity()?)),
-            (ElementType_t::MIXED, true) => Ok(Connectivity::OldMixed(self.read_inline_nconnectivity()?)),
-            (ElementType_t::ElementTypeNull | ElementType_t::ElementTypeUserDefined, _) => anyhow::bail!("Invalid element type"),
+            (ElementType_t::NGON_n, true) => {
+                Ok(Connectivity::OldNGON(self.read_inline_nconnectivity()?))
+            }
+            (ElementType_t::NFACE_n, true) => {
+                Ok(Connectivity::OldNFACE(self.read_inline_nconnectivity()?))
+            }
+            (ElementType_t::MIXED, true) => {
+                Ok(Connectivity::OldMixed(self.read_inline_nconnectivity()?))
+            }
+            (ElementType_t::ElementTypeNull | ElementType_t::ElementTypeUserDefined, _) => {
+                anyhow::bail!("Invalid element type")
+            }
             _ => anyhow::bail!("Unsupported element type"),
         }
     }
@@ -115,9 +122,16 @@ impl<'a> Element<'a> {
         ))?;
 
         // https://cgnsorg.atlassian.net/browse/CGNS-285
-        debug_assert_ne!(offsets, vec![0; self.element_size() as usize + 1], "Missing offsets ?!");
+        debug_assert_ne!(
+            offsets,
+            vec![0; self.element_size() as usize + 1],
+            "Missing offsets ?!"
+        );
 
-        Ok(NConnectivity { connectivity, offsets })
+        Ok(NConnectivity {
+            connectivity,
+            offsets,
+        })
     }
 
     /// Get point per face of an element type
@@ -144,7 +158,6 @@ impl<'a> Element<'a> {
         Ok(data_size)
         // Ok(self.element_size() * self.npe()?)
     }
-
 }
 
 // impl<'a> Read<'a, f32> for Element<'a> {
@@ -161,7 +174,6 @@ impl<'a> Element<'a> {
 //             &mut connect_offset,
 //             std::ptr::null_mut() // parent_data
 //         ))?;
-
 
 //     }
 // }
