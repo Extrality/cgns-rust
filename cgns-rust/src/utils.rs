@@ -1,3 +1,7 @@
+use std::{ffi, ptr::null};
+
+use anyhow::Result;
+
 pub const CGIO_MAX_NAME_LENGTH: usize = 32;
 pub const CGIO_NAME_BUFFER_LENGTH: usize = CGIO_MAX_NAME_LENGTH + 1;
 
@@ -19,6 +23,16 @@ impl CGNSError {
     {
         Self { msg: msg.into() }
     }
+}
+
+pub(crate) fn bytes2string(bytes: &[u8]) -> Result<String> {
+    // TODO: use ffi::CStr::from_bytes_until_nul once it's stabilized
+    let null_byte = bytes
+        .iter()
+        .position(|&e| e == 0)
+        .unwrap_or(bytes.len() - 1);
+    let bytes = &bytes[0..null_byte + 1];
+    Ok(ffi::CStr::from_bytes_with_nul(bytes)?.to_str()?.to_owned())
 }
 
 /// EZ wrapper for CGNS functions that return `ier`

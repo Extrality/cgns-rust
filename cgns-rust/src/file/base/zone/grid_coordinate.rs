@@ -9,7 +9,7 @@ use cgns_sys::*;
 
 use self::coords::Coordinates;
 use crate::traits::{CGNSNode, CGNSParent};
-use crate::utils::{ier_cg_fn, CGNSError, CGIO_NAME_BUFFER_LENGTH};
+use crate::utils::{bytes2string, ier_cg_fn, CGNSError, CGIO_NAME_BUFFER_LENGTH};
 
 use super::Zone;
 
@@ -27,7 +27,7 @@ impl<'a> CGNSNode<'a> for GridCoordinates<'a> {
 
     fn from_id(parent: &'a Self::Parent, id: i32) -> Result<Self> {
         const DEFAULT_BBOX: [f64; 3] = [-1.; 3];
-        let mut grid_name = [0i8; CGIO_NAME_BUFFER_LENGTH];
+        let mut grid_name = [0u8; CGIO_NAME_BUFFER_LENGTH];
         let mut bounding_box = DEFAULT_BBOX;
         let dtype = DataType_t::RealDouble;
 
@@ -46,10 +46,7 @@ impl<'a> CGNSNode<'a> for GridCoordinates<'a> {
             dtype,
             bounding_box.as_mut_ptr() as *mut ffi::c_void,
         ))?;
-        let name = unsafe { ffi::CStr::from_ptr(grid_name.as_ptr()) }
-            .to_str()
-            .unwrap()
-            .to_owned();
+        let name = bytes2string(&grid_name)?;
         // If the bounding box is not set, CGNS will print a warning to stdout but won't return an error.
         let bounding_box = if bounding_box == DEFAULT_BBOX {
             None

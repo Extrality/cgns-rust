@@ -7,7 +7,7 @@ use cgns_sys::*;
 
 use crate::file::base::zone::ZoneSize;
 use crate::traits::{CGNSNode, Read};
-use crate::utils::{ier_cg_fn, CGNSError, CGIO_NAME_BUFFER_LENGTH};
+use crate::utils::{bytes2string, ier_cg_fn, CGNSError, CGIO_NAME_BUFFER_LENGTH};
 
 use super::GridCoordinates;
 
@@ -62,10 +62,7 @@ impl<'a> CGNSNode<'a> for Coordinates<'a> {
             &mut dtype,
             coord_name.as_mut_ptr().cast(),
         ))?;
-        let name = unsafe { ffi::CStr::from_ptr(coord_name.as_ptr().cast()) }
-            .to_str()
-            .unwrap()
-            .to_owned();
+        let name = bytes2string(&coord_name)?;
 
         Ok(Coordinates {
             name,

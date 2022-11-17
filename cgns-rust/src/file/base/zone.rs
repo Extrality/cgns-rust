@@ -1,4 +1,5 @@
 pub mod arbitrary_grid_motion;
+pub mod boundary_conditions;
 pub mod elements;
 pub mod flow_solution;
 pub mod grid_coordinate;
@@ -10,10 +11,14 @@ use std::ffi;
 use anyhow::{anyhow, Result};
 use cgns_sys::*;
 
+use self::boundary_conditions::BC;
 use self::elements::Element;
 use self::flow_solution::FlowSolution;
 use self::grid_coordinate::GridCoordinates;
-use crate::traits::{CGNSNode, CGNSNodeIterator, CGNSParent};
+use crate::{
+    traits::{CGNSNode, CGNSNodeIterator, CGNSParent},
+    utils::bytes2string,
+};
 
 use super::Base;
 use crate::utils::{ier_cg_fn, CGNSError, CGIO_NAME_BUFFER_LENGTH};
@@ -61,6 +66,10 @@ impl<'a> Zone<'a> {
     pub fn iter_grid_coordinates(&'a self) -> Result<CGNSNodeIterator<'a, GridCoordinates<'a>>> {
         self.iter()
     }
+
+    pub fn iter_boundary_conditions(&'a self) -> Result<CGNSNodeIterator<'a, BC<'a>>> {
+        self.iter()
+    }
 }
 
 impl ZoneSize {
@@ -93,7 +102,7 @@ impl<'a> CGNSNode<'a> for Zone<'a> {
 
     fn from_id(parent: &'a Self::Parent, id: i32) -> Result<Self> {
         let mut size = [0; 9];
-        let mut name_raw = [0 as ffi::c_char; CGIO_NAME_BUFFER_LENGTH];
+        let mut name_raw = [0u8; CGIO_NAME_BUFFER_LENGTH];
         let mut ztype = ZoneType_t::ZoneTypeNull;
         let mut index_dimension = 0;
 
@@ -101,7 +110,7 @@ impl<'a> CGNSNode<'a> for Zone<'a> {
             parent.file.id(),
             parent.id(),
             id,
-            name_raw.as_mut_ptr(),
+            name_raw.as_mut_ptr().cast(),
             size.as_mut_ptr()
         ))?;
 
@@ -113,12 +122,11 @@ impl<'a> CGNSNode<'a> for Zone<'a> {
             &mut index_dimension
         ))?;
 
+        let name = bytes2string(&name_raw)?;
         let size = ZoneSize::from_raw_values(size, ztype, parent.phys_dim)?;
 
         Ok(Zone {
-            name: unsafe { ffi::CStr::from_ptr(name_raw.as_ptr()) }
-                .to_str()?
-                .to_string(),
+            name,
             size,
             ztype,
             index_dimension,
@@ -164,6 +172,19 @@ impl<'a> CGNSParent<'a, Element<'a>> for Zone<'a> {
     fn num_child(&self) -> Result<i32> {
         let mut number = 0;
         ier_cg_fn!(cg_nsections(
+            self.base.file.id(),
+            self.base.id(),
+            self.id,
+            &mut number
+        ))?;
+        Ok(number)
+    }
+}
+
+impl<'a> CGNSParent<'a, BC<'a>> for Zone<'a> {
+    fn num_child(&self) -> Result<i32> {
+        let mut number = 0;
+        ier_cg_fn!(cg_nbocos(
             self.base.file.id(),
             self.base.id(),
             self.id,

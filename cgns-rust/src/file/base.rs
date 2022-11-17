@@ -11,7 +11,7 @@ use self::zone::Zone;
 use super::File;
 use crate::{
     traits::{CGNSNode, CGNSParent},
-    utils::{ier_cg_fn, CGNSError, CGIO_NAME_BUFFER_LENGTH},
+    utils::{bytes2string, ier_cg_fn, CGNSError, CGIO_NAME_BUFFER_LENGTH},
 };
 
 #[derive(Debug, Clone, PartialEq, TryFromPrimitive, IntoPrimitive)]
@@ -42,23 +42,18 @@ impl<'a> CGNSNode<'a> for Base<'a> {
     type Parent = File;
 
     fn from_id(parent: &'a Self::Parent, id: i32) -> Result<Self> {
-        let mut name = [0 as ffi::c_char; CGIO_NAME_BUFFER_LENGTH];
+        let mut name = [0u8; CGIO_NAME_BUFFER_LENGTH];
         let mut cell_dim = 0;
         let mut phys_dim = 0;
 
         ier_cg_fn!(cg_base_read(
             parent.id(),
             id,
-            name.as_mut_ptr(),
+            name.as_mut_ptr().cast(),
             &mut cell_dim,
             &mut phys_dim
         ))?;
-
-        // CStr::from_bytes_until_nul https://github.com/rust-lang/rust/issues/95027
-        let name = unsafe { ffi::CStr::from_ptr(name.as_ptr()) }
-            .to_str()
-            .unwrap()
-            .to_owned();
+        let name = bytes2string(&name)?;
         let cell_dim = CellDimension::try_from(cell_dim).unwrap();
 
         Ok(Base {

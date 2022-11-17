@@ -6,9 +6,17 @@ use anyhow::{anyhow, Result};
 use cgns_sys::*;
 
 use crate::traits::CGNSNode;
-use crate::utils::{ier_cg_fn, CGNSError, CGIO_NAME_BUFFER_LENGTH};
+use crate::utils::{bytes2string, ier_cg_fn, CGNSError, CGIO_NAME_BUFFER_LENGTH};
 
 use super::Zone;
+
+/// Get point per face of an element type
+pub fn npe(elem_id: u32) -> Result<i64> {
+    let elem_type = unsafe { std::mem::transmute(elem_id) };
+    let mut npe = 0;
+    ier_cg_fn!(cg_npe(elem_type, &mut npe))?;
+    Ok(npe as i64)
+}
 
 #[derive(Debug, Clone)]
 /// CGNS node `Elements_t`
@@ -24,92 +32,85 @@ pub struct Element<'a> {
 }
 
 #[derive(Debug, Clone)]
-pub enum Connectivity {
-    OldNGON(InlineNConnectivity),
-    OldNFACE(InlineNConnectivity),
-    OldMixed(InlineNConnectivity),
-
-    NGON(NConnectivity),
-    NFACE(NConnectivity),
-    MIXED(NConnectivity),
+pub struct Connectivity {
+    pub connectivity: Vec<i64>,
+    pub offsets: Option<Vec<i64>>,
 }
-
-/// Support for older NGON, NFACE, MIXED element connectivity.
-/// <https://cgns.github.io/ProposedExtensions/NGON-CPEX-0041-v0.16.pdf>
-#[derive(Debug, Clone)]
-pub struct InlineNConnectivity(Vec<i64>);
-
-#[derive(Debug, Clone)]
-pub struct NConnectivity {
-    connectivity: Vec<i64>,
-    offsets: Vec<i64>,
-}
-
-impl Connectivity {
-    pub fn to_vtk(&self) {
-        match self {
-            Self::OldNGON(_) => (),
-            _ => (),
-        };
-
-        // cells (inline connectivity)
-        // cell_type
-        // points
-    }
-}
-
-// #[derive(Debug, Clone)]
-// struct StaticConnectivity {
-//     element_type: ElementType_t,
-//     connectivity: Vec<i64>
-// }
 
 impl<'a> Element<'a> {
-    pub fn read(&self) -> Result<Connectivity> {
+    /// Whether the connectivity is composed of `connectivity` and `offsets` or not
+    pub fn connectivity_has_offsets(&self) -> bool {
         let old_cgns_compat = self.zone.base.file.version < 4.;
+        !old_cgns_compat
+            && matches!(
+                self.elem_type,
+                ElementType_t::MIXED | ElementType_t::NGON_n | ElementType_t::NFACE_n
+            )
+    }
 
-        println!("file version: {}", self.zone.base.file.version);
-
-        // Ok(Connectivity::NFACE(NConnectivity{connectivity: Vec::new(), offsets: Vec::new()}))
-        match (self.elem_type, old_cgns_compat) {
-            (ElementType_t::MIXED, false) => Ok(Connectivity::MIXED(self.read_nconnectivity()?)),
-            (ElementType_t::NGON_n, false) => Ok(Connectivity::NGON(self.read_nconnectivity()?)),
-            (ElementType_t::NFACE_n, false) => Ok(Connectivity::NFACE(self.read_nconnectivity()?)),
-            (ElementType_t::NGON_n, true) => {
-                Ok(Connectivity::OldNGON(self.read_inline_nconnectivity()?))
+    /// A method to read connectivity values directly to a buffer, to avoid copying large amount of data
+    /// See [`read_connectivity()`]
+    pub fn read_connectivity_to_buff(
+        &self,
+        connectivity: &mut [i64],
+        offsets: Option<&mut [i64]>,
+    ) -> Result<()> {
+        if self.connectivity_has_offsets() {
+            if let Some(offsets) = &offsets {
+                if offsets.len() != self.size() as usize {
+                    anyhow::bail!(
+                        "Offset buffer is of len {} but should be {}",
+                        offsets.len(),
+                        self.size()
+                    );
+                }
+            } else {
+                anyhow::bail!("Offset buffer is required but is None");
             }
-            (ElementType_t::NFACE_n, true) => {
-                Ok(Connectivity::OldNFACE(self.read_inline_nconnectivity()?))
-            }
-            (ElementType_t::MIXED, true) => {
-                Ok(Connectivity::OldMixed(self.read_inline_nconnectivity()?))
-            }
-            (ElementType_t::ElementTypeNull | ElementType_t::ElementTypeUserDefined, _) => {
-                anyhow::bail!("Invalid element type")
-            }
-            _ => anyhow::bail!("Unsupported element type"),
         }
-    }
+        if connectivity.len() != self.data_size()? as usize {
+            anyhow::bail!(
+                "Connectivity buffer is of len {} but should be {}",
+                connectivity.len(),
+                self.data_size()?
+            );
+        }
 
-    fn read_inline_nconnectivity(&self) -> Result<InlineNConnectivity> {
-        let mut connectivity = vec![0; self.data_size().unwrap() as usize];
-        // Always use poly_elements_read for eg support for old NGON/NFACE
+        let offset_ptr = if let Some(offsets) = offsets {
+            offsets.as_mut_ptr()
+        } else {
+            std::ptr::null_mut()
+        };
+
+        #[allow(unused_unsafe)]
         ier_cg_fn!(cg_poly_elements_read(
             self.zone.base.file.id(),
             self.zone.base.id(),
             self.zone.id(),
             self.id,
             connectivity.as_mut_ptr(),
-            std::ptr::null_mut(),
+            offset_ptr,
             std::ptr::null_mut()
         ))?;
 
-        Ok(InlineNConnectivity(connectivity))
+        Ok(())
     }
 
-    fn read_nconnectivity(&self) -> Result<NConnectivity> {
+    /// Read the element connectivity
+    pub fn read_connectivity(&self) -> Result<Connectivity> {
+        let has_offsets = self.connectivity_has_offsets();
         let mut connectivity = vec![0; self.data_size()? as usize];
-        let mut offsets = vec![0; self.element_size() as usize + 1];
+        let mut offsets = if has_offsets {
+            Some(vec![0; self.size() as usize + 1])
+        } else {
+            None
+        };
+
+        let offset_ptr = if let Some(offsets) = &mut offsets {
+            offsets.as_mut_ptr()
+        } else {
+            std::ptr::null_mut()
+        };
 
         ier_cg_fn!(cg_poly_elements_read(
             self.zone.base.file.id(),
@@ -117,36 +118,28 @@ impl<'a> Element<'a> {
             self.zone.id(),
             self.id,
             connectivity.as_mut_ptr(),
-            offsets.as_mut_ptr(),
+            offset_ptr,
             std::ptr::null_mut()
         ))?;
 
-        // https://cgnsorg.atlassian.net/browse/CGNS-285
-        debug_assert_ne!(
-            offsets,
-            vec![0; self.element_size() as usize + 1],
-            "Missing offsets ?!"
-        );
-
-        Ok(NConnectivity {
+        Ok(Connectivity {
             connectivity,
             offsets,
         })
     }
 
     /// Get point per face of an element type
-    fn npe(&self) -> Result<i64> {
+    pub fn npe(&self) -> Result<i64> {
         let mut npe = 0;
         ier_cg_fn!(cg_npe(self.elem_type, &mut npe))?;
         Ok(npe as i64)
     }
 
-    ///
-    fn element_size(&self) -> i64 {
+    pub fn size(&self) -> i64 {
         self.range_end - self.range_start + 1
     }
 
-    fn data_size(&self) -> Result<i64> {
+    pub fn data_size(&self) -> Result<i64> {
         let mut data_size = 0;
         ier_cg_fn!(cg_ElementDataSize(
             self.zone.base.file.id(),
@@ -156,27 +149,8 @@ impl<'a> Element<'a> {
             &mut data_size
         ))?;
         Ok(data_size)
-        // Ok(self.element_size() * self.npe()?)
     }
 }
-
-// impl<'a> Read<'a, f32> for Element<'a> {
-//     fn read(&self) -> Result<Vec<f32>> {
-//         let mut elements = Box::new([0i64; 100]);
-//         let mut connect_offset = 0;
-
-//         ier_cg_fn!(cg_poly_elements_read(
-//             self.zone.base.file.id(),
-//             self.zone.base.id(),
-//             self.zone.id(),
-//             self.id,
-//             elements.as_mut_ptr(),
-//             &mut connect_offset,
-//             std::ptr::null_mut() // parent_data
-//         ))?;
-
-//     }
-// }
 
 impl<'a> CGNSNode<'a> for Element<'a> {
     type Parent = Zone<'a>;
@@ -201,11 +175,7 @@ impl<'a> CGNSNode<'a> for Element<'a> {
             &mut nbndry,
             &mut is_parent_defined
         ))?;
-
-        let name = unsafe { ffi::CStr::from_ptr(elem_name.as_ptr().cast()) }
-            .to_str()
-            .unwrap()
-            .to_owned();
+        let name = bytes2string(&elem_name)?;
 
         Ok(Element {
             name,

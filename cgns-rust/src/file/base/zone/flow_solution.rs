@@ -9,7 +9,7 @@ use cgns_sys::*;
 
 use self::field::Field;
 use crate::traits::{CGNSNode, CGNSParent};
-use crate::utils::{ier_cg_fn, CGNSError, CGIO_NAME_BUFFER_LENGTH};
+use crate::utils::{bytes2string, ier_cg_fn, CGNSError, CGIO_NAME_BUFFER_LENGTH};
 
 use super::Zone;
 
@@ -63,9 +63,7 @@ impl<'a> CGNSNode<'a> for FlowSolution<'a> {
             sol_name.as_mut_ptr().cast(),
             &mut grid_location
         ))?;
-
-        let basename = unsafe { ffi::CStr::from_ptr(sol_name.as_ptr().cast()) };
-        let name = basename.to_str().unwrap().to_owned();
+        let name = bytes2string(&sol_name)?;
 
         Ok(FlowSolution {
             name,

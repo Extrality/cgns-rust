@@ -9,6 +9,7 @@ use heapless;
 
 use super::FlowSolution;
 use crate::traits::{CGNSNode, Read};
+use crate::utils::bytes2string;
 use crate::{
     file::base::zone::ZoneSize,
     utils::{ier_cg_fn, CGNSError, CGIO_NAME_BUFFER_LENGTH},
@@ -63,11 +64,7 @@ impl<'a> CGNSNode<'a> for Field<'a> {
             &mut datatype,
             name.as_mut_ptr().cast()
         ))?;
-
-        let name = unsafe { ffi::CStr::from_ptr(name.as_ptr().cast()) }
-            .to_str()
-            .unwrap()
-            .to_owned();
+        let name = bytes2string(&name)?;
 
         Ok(Field {
             name,
