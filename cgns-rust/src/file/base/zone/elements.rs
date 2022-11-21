@@ -37,7 +37,6 @@ pub struct Connectivity {
     pub offsets: Option<Vec<i64>>,
 }
 
-
 /// Special fix for CGNS 3.4.1.
 /// Returns the new length of `connectivity`.
 fn fix_missing_connectivity_offsets(
@@ -46,33 +45,39 @@ fn fix_missing_connectivity_offsets(
     elem_type: ElementType_t,
 ) -> Result<usize> {
     offsets[0] = 0;
-    let mut idx_connect_old = 0;
-    let mut idx_connect_new = 0;
-    match elem_type {
+
+    let connectivity_len = match elem_type {
         ElementType_t::NFACE_n | ElementType_t::NGON_n => {
+            let mut idx_connect_new = 0;
+            let mut idx_connect_old = 0;
             for idx_elem in 0..offsets.len() - 1 {
                 let elem_size = connectivity[idx_connect_old];
                 idx_connect_old += 1;
-                offsets[idx_elem+1] = offsets[idx_elem] + elem_size;
+                offsets[idx_elem + 1] = offsets[idx_elem] + elem_size;
                 for _ in 0..elem_size {
                     connectivity[idx_connect_new] = connectivity[idx_connect_old];
                     idx_connect_new += 1;
                     idx_connect_old += 1;
                 }
             }
+            idx_connect_new
         }
         ElementType_t::MIXED => {
-            for idx_elem in 0..offsets.len()-1 {
-                let elem_size = npe(connectivity[idx_connect_old] as u32)?;
-                offsets[idx_elem+1] = offsets[idx_elem] + elem_size;
-                idx_connect_old += elem_size as usize + 1;
+            let mut idx_connect = 0;
+            for idx_elem in 0..offsets.len() - 1 {
+                let elem_size = npe(connectivity[idx_connect] as u32)?;
+                offsets[idx_elem + 1] = offsets[idx_elem] + elem_size;
+                idx_connect += elem_size as usize + 1;
             }
+            idx_connect
         }
-        _ => anyhow::bail!("Invalid elem type for missing connectivity offset: {:?}", elem_type),
-    }
-    anyhow::ensure!(idx_connect_old == connectivity.len());
+        _ => anyhow::bail!(
+            "Invalid elem type for missing connectivity offset: {:?}",
+            elem_type
+        ),
+    };
 
-    Ok(idx_connect_new)
+    Ok(connectivity_len)
 }
 
 impl<'a> Element<'a> {
@@ -137,8 +142,9 @@ impl<'a> Element<'a> {
         let mut final_connectivity_size = connectivity.len();
         if let Some(offsets) = offsets {
             if offsets.starts_with(&CONTROL_PATTERN[..2.min(offsets.len())]) {
-                final_connectivity_size = fix_missing_connectivity_offsets(connectivity, offsets, self.elem_type)
-                    .context("Could not rebuild missing offsets array")?;
+                final_connectivity_size =
+                    fix_missing_connectivity_offsets(connectivity, offsets, self.elem_type)
+                        .context("Could not rebuild missing offsets array")?;
             }
         }
 
@@ -154,10 +160,7 @@ impl<'a> Element<'a> {
         } else {
             None
         };
-        let conn_len = self.read_connectivity_to_buff(
-            &mut connectivity,
-            offsets.as_deref_mut(),
-        )?;
+        let conn_len = self.read_connectivity_to_buff(&mut connectivity, offsets.as_deref_mut())?;
         connectivity.truncate(conn_len);
 
         Ok(Connectivity {
@@ -184,9 +187,6 @@ impl<'a> Element<'a> {
     pub fn offsets_len(&self) -> i64 {
         self.size() + 1
     }
-
-
-
 
     /// Connectivity length
     #[inline]
@@ -255,7 +255,12 @@ mod tests {
     fn test_fix_missing_connectivity_offsets() {
         let mut connectivity = [3, 1, 2, 3, 4, 3, 2, 1, 4, 4, 4, 3, 2, 1, 2, 1, 2];
         let mut offsets = [0, 0, 0, 0, 0];
-        let new_conn_len = fix_missing_connectivity_offsets(&mut connectivity, &mut offsets, ElementType_t::NGON_n).unwrap();
+        let new_conn_len = fix_missing_connectivity_offsets(
+            &mut connectivity,
+            &mut offsets,
+            ElementType_t::NGON_n,
+        )
+        .unwrap();
         assert_eq!(new_conn_len, 13);
         assert_eq!(offsets, [0, 3, 7, 11, 13]);
     }
