@@ -1,7 +1,7 @@
 [package]
 authors = ["Arthur Woimbée <awoimbee@extrality.ai>"]
 name = "cgns-rust"
-version = "0.0.2"
+version = "0.0.3"
 edition = "2021"
 description = "Wrapper around cgns-sys."
 repository = "https://github.com/extrality/cgns-rust"
