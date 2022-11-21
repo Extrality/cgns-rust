@@ -2,7 +2,7 @@
 
 use std::ffi;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use cgns_sys::*;
 
 use crate::traits::CGNSNode;
@@ -37,27 +37,67 @@ pub struct Connectivity {
     pub offsets: Option<Vec<i64>>,
 }
 
+
+/// Special fix for CGNS 3.4.1.
+/// Returns the new length of `connectivity`.
+fn fix_missing_connectivity_offsets(
+    connectivity: &mut [i64],
+    offsets: &mut [i64],
+    elem_type: ElementType_t,
+) -> Result<usize> {
+    offsets[0] = 0;
+    let mut idx_connect_old = 0;
+    let mut idx_connect_new = 0;
+    match elem_type {
+        ElementType_t::NFACE_n | ElementType_t::NGON_n => {
+            for idx_elem in 0..offsets.len() - 1 {
+                let elem_size = connectivity[idx_connect_old];
+                idx_connect_old += 1;
+                offsets[idx_elem+1] = offsets[idx_elem] + elem_size;
+                for _ in 0..elem_size {
+                    connectivity[idx_connect_new] = connectivity[idx_connect_old];
+                    idx_connect_new += 1;
+                    idx_connect_old += 1;
+                }
+            }
+        }
+        ElementType_t::MIXED => {
+            for idx_elem in 0..offsets.len()-1 {
+                let elem_size = npe(connectivity[idx_connect_old] as u32)?;
+                offsets[idx_elem+1] = offsets[idx_elem] + elem_size;
+                idx_connect_old += elem_size as usize + 1;
+            }
+        }
+        _ => anyhow::bail!("Invalid elem type for missing connectivity offset: {:?}", elem_type),
+    }
+    anyhow::ensure!(idx_connect_old == connectivity.len());
+
+    Ok(idx_connect_new)
+}
+
 impl<'a> Element<'a> {
     /// Whether the connectivity is composed of `connectivity` and `offsets` or not
+    #[inline]
     pub fn connectivity_has_offsets(&self) -> bool {
-        let old_cgns_compat = self.zone.base.file.version < 4.;
-        !old_cgns_compat
-            && matches!(
-                self.elem_type,
-                ElementType_t::MIXED | ElementType_t::NGON_n | ElementType_t::NFACE_n
-            )
+        matches!(
+            self.elem_type,
+            ElementType_t::MIXED | ElementType_t::NGON_n | ElementType_t::NFACE_n
+        )
     }
 
     /// A method to read connectivity values directly to a buffer, to avoid copying large amount of data
     /// See [`read_connectivity()`]
+    /// Because of an issue in the CGNS lib (caused by CGNS 3.4.1),
+    /// the length of the connectivity might change and is returned by this function.
     pub fn read_connectivity_to_buff(
         &self,
         connectivity: &mut [i64],
-        offsets: Option<&mut [i64]>,
-    ) -> Result<()> {
+        mut offsets: Option<&mut [i64]>,
+    ) -> Result<usize> {
+        const CONTROL_PATTERN: [i64; 2] = [1337, 420];
         if self.connectivity_has_offsets() {
             if let Some(offsets) = &offsets {
-                if offsets.len() != self.size() as usize {
+                if offsets.len() != self.offsets_len() as usize {
                     anyhow::bail!(
                         "Offset buffer is of len {} but should be {}",
                         offsets.len(),
@@ -76,7 +116,9 @@ impl<'a> Element<'a> {
             );
         }
 
-        let offset_ptr = if let Some(offsets) = offsets {
+        let offset_ptr = if let Some(offsets) = &mut offsets {
+            let check_len = 2.min(offsets.len());
+            offsets[..check_len].copy_from_slice(&CONTROL_PATTERN[..check_len]);
             offsets.as_mut_ptr()
         } else {
             std::ptr::null_mut()
@@ -92,8 +134,15 @@ impl<'a> Element<'a> {
             offset_ptr,
             std::ptr::null_mut()
         ))?;
+        let mut final_connectivity_size = connectivity.len();
+        if let Some(offsets) = offsets {
+            if offsets.starts_with(&CONTROL_PATTERN[..2.min(offsets.len())]) {
+                final_connectivity_size = fix_missing_connectivity_offsets(connectivity, offsets, self.elem_type)
+                    .context("Could not rebuild missing offsets array")?;
+            }
+        }
 
-        Ok(())
+        Ok(final_connectivity_size)
     }
 
     /// Read the element connectivity
@@ -101,26 +150,15 @@ impl<'a> Element<'a> {
         let has_offsets = self.connectivity_has_offsets();
         let mut connectivity = vec![0; self.data_size()? as usize];
         let mut offsets = if has_offsets {
-            Some(vec![0; self.size() as usize + 1])
+            Some(vec![0; self.offsets_len() as usize])
         } else {
             None
         };
-
-        let offset_ptr = if let Some(offsets) = &mut offsets {
-            offsets.as_mut_ptr()
-        } else {
-            std::ptr::null_mut()
-        };
-
-        ier_cg_fn!(cg_poly_elements_read(
-            self.zone.base.file.id(),
-            self.zone.base.id(),
-            self.zone.id(),
-            self.id,
-            connectivity.as_mut_ptr(),
-            offset_ptr,
-            std::ptr::null_mut()
-        ))?;
+        let conn_len = self.read_connectivity_to_buff(
+            &mut connectivity,
+            offsets.as_deref_mut(),
+        )?;
+        connectivity.truncate(conn_len);
 
         Ok(Connectivity {
             connectivity,
@@ -129,16 +167,29 @@ impl<'a> Element<'a> {
     }
 
     /// Get point per face of an element type
+    #[inline]
     pub fn npe(&self) -> Result<i64> {
         let mut npe = 0;
         ier_cg_fn!(cg_npe(self.elem_type, &mut npe))?;
         Ok(npe as i64)
     }
 
+    #[inline]
     pub fn size(&self) -> i64 {
+        // +1 because CGNS arrays start at one
         self.range_end - self.range_start + 1
     }
 
+    #[inline]
+    pub fn offsets_len(&self) -> i64 {
+        self.size() + 1
+    }
+
+
+
+
+    /// Connectivity length
+    #[inline]
     pub fn data_size(&self) -> Result<i64> {
         let mut data_size = 0;
         ier_cg_fn!(cg_ElementDataSize(
@@ -193,5 +244,19 @@ impl<'a> CGNSNode<'a> for Element<'a> {
     }
     fn parent(&self) -> &Self::Parent {
         self.zone
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fix_missing_connectivity_offsets() {
+        let mut connectivity = [3, 1, 2, 3, 4, 3, 2, 1, 4, 4, 4, 3, 2, 1, 2, 1, 2];
+        let mut offsets = [0, 0, 0, 0, 0];
+        let new_conn_len = fix_missing_connectivity_offsets(&mut connectivity, &mut offsets, ElementType_t::NGON_n).unwrap();
+        assert_eq!(new_conn_len, 13);
+        assert_eq!(offsets, [0, 3, 7, 11, 13]);
     }
 }
