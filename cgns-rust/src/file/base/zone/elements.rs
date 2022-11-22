@@ -66,8 +66,8 @@ fn fix_missing_connectivity_offsets(
             let mut idx_connect = 0;
             for idx_elem in 0..offsets.len() - 1 {
                 let elem_size = npe(connectivity[idx_connect] as u32)?;
-                offsets[idx_elem + 1] = offsets[idx_elem] + elem_size;
                 idx_connect += elem_size as usize + 1;
+                offsets[idx_elem + 1] = idx_connect as i64;
             }
             idx_connect
         }
