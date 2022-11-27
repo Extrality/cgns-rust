@@ -17,19 +17,36 @@ use super::Zone;
 /// CGNS node `GridCoordinates_t`
 pub struct GridCoordinates<'a> {
     pub name: String,
-    pub bounding_box: Option<[f64; 3]>,
     id: i32,
     zone: &'a Zone<'a>,
+}
+
+impl<'a> GridCoordinates<'a> {
+    pub fn read_bounding_box(&self) -> Option<[f64; 3]> {
+        const DEFAULT_BBOX: [f64; 3] = [-1.; 3];
+        let mut bounding_box = DEFAULT_BBOX;
+        let res = ier_cg_fn!(cg_grid_bounding_box_read(
+            self.zone.base.file.id(),
+            self.zone.base.id(),
+            self.zone.id(),
+            self.id,
+            DataType_t::RealDouble,
+            bounding_box.as_mut_ptr() as *mut ffi::c_void,
+        ));
+        // If the bounding box is not set, CGNS will print a warning to stdout but won't return an error.
+        if res.is_err() || bounding_box == DEFAULT_BBOX {
+            None
+        } else {
+            Some(bounding_box)
+        }
+    }
 }
 
 impl<'a> CGNSNode<'a> for GridCoordinates<'a> {
     type Parent = Zone<'a>;
 
     fn from_id(parent: &'a Self::Parent, id: i32) -> Result<Self> {
-        const DEFAULT_BBOX: [f64; 3] = [-1.; 3];
         let mut grid_name = [0u8; CGIO_NAME_BUFFER_LENGTH];
-        let mut bounding_box = DEFAULT_BBOX;
-        let dtype = DataType_t::RealDouble;
 
         ier_cg_fn!(cg_grid_read(
             parent.base.file.id(),
@@ -38,25 +55,10 @@ impl<'a> CGNSNode<'a> for GridCoordinates<'a> {
             id,
             grid_name.as_mut_ptr().cast(),
         ))?;
-        ier_cg_fn!(cg_grid_bounding_box_read(
-            parent.base.file.id(),
-            parent.base.id(),
-            parent.id(),
-            id,
-            dtype,
-            bounding_box.as_mut_ptr() as *mut ffi::c_void,
-        ))?;
         let name = bytes2string(&grid_name)?;
-        // If the bounding box is not set, CGNS will print a warning to stdout but won't return an error.
-        let bounding_box = if bounding_box == DEFAULT_BBOX {
-            None
-        } else {
-            Some(bounding_box)
-        };
 
         Ok(GridCoordinates {
             name,
-            bounding_box,
             id,
             zone: parent,
         })

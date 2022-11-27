@@ -1,4 +1,4 @@
-use std::{ffi, ptr::null};
+use std::ffi;
 
 use anyhow::Result;
 

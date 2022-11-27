@@ -34,20 +34,20 @@ pub struct Zone<'a> {
     id: i32,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ZoneSize {
     Structured3D(ZoneSizeStructured<3>),
     Structured2D(ZoneSizeStructured<2>),
     Unstructured(ZoneSizeUnstructured),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ZoneSizeStructured<const DIMENSIONS: usize> {
     pub n_vertex: [i64; DIMENSIONS],
     pub n_cells: [i64; DIMENSIONS],
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ZoneSizeUnstructured {
     pub n_vertex: i64,
     pub n_cells: i64,

@@ -14,7 +14,7 @@ use crate::{
     utils::{bytes2string, ier_cg_fn, CGNSError, CGIO_NAME_BUFFER_LENGTH},
 };
 
-#[derive(Debug, Clone, PartialEq, TryFromPrimitive, IntoPrimitive)]
+#[derive(Debug, Clone, PartialEq, Eq, TryFromPrimitive, IntoPrimitive)]
 #[repr(i32)]
 pub enum CellDimension {
     Line = 1,

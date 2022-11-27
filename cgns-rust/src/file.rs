@@ -25,7 +25,7 @@ pub struct File {
 }
 
 #[repr(u32)]
-#[derive(Debug, Clone, PartialEq, TryFromPrimitive, IntoPrimitive)]
+#[derive(Debug, Clone, PartialEq, Eq, TryFromPrimitive, IntoPrimitive)]
 pub enum OpenFileMode {
     Read = CG_MODE_READ,
     Write = CG_MODE_WRITE,
@@ -45,15 +45,29 @@ impl File {
         ier_cg_fn!(cg_open(raw_path.as_ptr(), mode as i32, &mut cg_fn,))?;
         ier_cg_fn!(cg_version(cg_fn, &mut version))?;
 
-        // if let Some(parent) = path.parent() {
-        //     let cg_link_search_path = ffi::CString::new(parent.as_os_str().as_bytes()).unwrap();
-        //     ier_cg_fn!(cg_add_path(cg_link_search_path.as_ptr()))?;
-        // }
-
         Ok(Self {
             desc: cg_fn,
             version,
         })
+    }
+
+    unsafe fn close_by_ref(&self) -> Result<()> {
+        ier_cg_fn!(cg_close(self.desc))
+    }
+
+    pub fn close(self) -> Result<()> {
+        unsafe { self.close_by_ref()? };
+        std::mem::forget(self);
+        Ok(())
+    }
+}
+
+impl Drop for File {
+    fn drop(&mut self) {
+        let res = unsafe { self.close_by_ref() };
+        if let Err(e) = res {
+            panic!("Failed to close {:?}: {}", self, e)
+        }
     }
 }
 

@@ -23,10 +23,14 @@ pub fn npe(elem_id: u32) -> Result<i64> {
 pub struct Element<'a> {
     pub name: String,
     pub elem_type: ElementType_t,
-    pub range_start: i64,
-    pub range_end: i64,
-    nbndry: i32, // ???
-    is_parent_data_defined: bool,
+    /// Index of first element in the section.
+    pub elem_start: i64,
+    /// Index of last element in the section.
+    pub elem_end: i64,
+    /// "Index of last boundary element in the section. Set to zero if the elements are unsorted.""
+    pub nbndry: i32, // ???
+    /// For boundary or interface elements, the parent_data array contains information on the cell(s) and cell face(s) sharing the element.
+    pub has_parent_data: bool,
     id: i32,
     pub zone: &'a Zone<'a>,
 }
@@ -180,7 +184,7 @@ impl<'a> Element<'a> {
     #[inline]
     pub fn size(&self) -> i64 {
         // +1 because CGNS arrays start at one
-        self.range_end - self.range_start + 1
+        self.elem_end - self.elem_start + 1
     }
 
     #[inline]
@@ -231,9 +235,9 @@ impl<'a> CGNSNode<'a> for Element<'a> {
         Ok(Element {
             name,
             elem_type,
-            range_start: start,
-            range_end: end,
-            is_parent_data_defined: is_parent_defined == 1,
+            elem_start: start,
+            elem_end: end,
+            has_parent_data: is_parent_defined == 1,
             nbndry,
             id,
             zone: parent,

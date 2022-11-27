@@ -15,7 +15,7 @@ use super::GridCoordinates;
 /// CGNS node `DataArray_t` under a `GridCoordinates_t`
 pub struct Coordinates<'a> {
     pub name: String,
-    dtype: DataType_t,
+    pub dtype: DataType_t,
     grid_coordinate: &'a GridCoordinates<'a>,
     id: i32,
 }
