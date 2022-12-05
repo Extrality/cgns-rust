@@ -11,6 +11,19 @@ macro_rules! log {
     line!(), $($arg)*));
 }
 
+#[derive(Debug)]
+struct ParseCallbacks ();
+
+impl bindgen::callbacks::ParseCallbacks for ParseCallbacks {
+    fn add_derives(&self, info: &bindgen::callbacks::DeriveInfo<'_>) -> Vec<String> {
+        if info.name == "ElementType_t" {
+            vec!["num_derive::FromPrimitive".into(), "num_derive::ToPrimitive".into()]
+        } else {
+            vec![]
+        }
+    }
+}
+
 fn main() {
     let static_link = !cfg!(feature = "dynamic");
 
@@ -62,6 +75,7 @@ fn main() {
         .default_enum_style(bindgen::EnumVariation::Rust {
             non_exhaustive: true,
         })
+        .parse_callbacks(Box::new(ParseCallbacks()))
         .size_t_is_usize(true)
         .generate()
         .expect("generate bindings");
