@@ -178,9 +178,7 @@ impl<'a> Element<'a> {
     /// Get point per face of an element type
     #[inline]
     pub fn npe(&self) -> Result<i64> {
-        let mut npe = 0;
-        ier_cg_fn!(cg_npe(self.elem_type, &mut npe))?;
-        Ok(npe as i64)
+        npe(self.elem_type as u32)
     }
 
     #[inline]
@@ -268,6 +266,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(new_conn_len, 13);
+        assert_eq!(&connectivity[..new_conn_len], &[1, 2, 3, 3, 2, 1, 4, 4, 3, 2, 1, 1, 2]);
         assert_eq!(offsets, [0, 3, 7, 11, 13]);
     }
 }

@@ -20,6 +20,10 @@ pub trait CGNSParent<'a, C: CGNSNode<'a, Parent = Self>>: CGNSNode<'a> {
             len: self.num_child()?,
         })
     }
+
+    fn get(&'a self, id: usize) -> Result<C> {
+        C::from_id(self, id as i32)
+    }
 }
 
 pub trait Read<'a, T>: CGNSNode<'a> {
