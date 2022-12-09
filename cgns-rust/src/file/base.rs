@@ -1,8 +1,5 @@
 pub mod zone;
 
-use std::ffi;
-
-use anyhow::{anyhow, Result};
 use cgns_sys::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
@@ -11,7 +8,7 @@ use self::zone::Zone;
 use super::File;
 use crate::{
     traits::{CGNSNode, CGNSParent},
-    utils::{bytes2string, ier_cg_fn, CGNSError, CGIO_NAME_BUFFER_LENGTH},
+    utils::{bytes2string, ier_cg_fn, Result, CGIO_NAME_BUFFER_LENGTH},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, TryFromPrimitive, IntoPrimitive)]

@@ -4,6 +4,7 @@
 
 mod utils;
 
+mod errors;
 pub mod file;
 pub mod traits;
 

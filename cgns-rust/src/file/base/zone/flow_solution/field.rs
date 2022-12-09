@@ -3,7 +3,6 @@
 use core::panic;
 use std::ffi;
 
-use anyhow::{anyhow, Result};
 use cgns_sys::*;
 use heapless;
 
@@ -12,7 +11,7 @@ use crate::traits::{CGNSNode, Read};
 use crate::utils::bytes2string;
 use crate::{
     file::base::zone::ZoneSize,
-    utils::{ier_cg_fn, CGNSError, CGIO_NAME_BUFFER_LENGTH},
+    utils::{ier_cg_fn, Result, CGIO_NAME_BUFFER_LENGTH},
 };
 
 #[derive(Debug, Clone)]

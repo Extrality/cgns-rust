@@ -4,14 +4,13 @@ pub mod coords;
 
 use std::ffi;
 
-use anyhow::{anyhow, Result};
+use anyhow::anyhow;
 use cgns_sys::*;
 
 use self::coords::Coordinates;
-use crate::traits::{CGNSNode, CGNSParent};
-use crate::utils::{bytes2string, ier_cg_fn, CGNSError, CGIO_NAME_BUFFER_LENGTH};
-
 use super::Zone;
+use crate::traits::{CGNSNode, CGNSParent};
+use crate::utils::{bytes2string, ier_cg_fn, Result, CGIO_NAME_BUFFER_LENGTH};
 
 #[derive(Debug, Clone)]
 /// CGNS node `GridCoordinates_t`
@@ -77,7 +76,8 @@ impl<'a> CGNSParent<'a, Coordinates<'a>> for GridCoordinates<'a> {
         if self.id > 1 {
             return Err(anyhow!(
                 "Can only read one GridCoordinates_t node. Use cgns-sys to read more."
-            ));
+            )
+            .into());
         }
         let mut number = 0;
         ier_cg_fn!(cg_ncoords(

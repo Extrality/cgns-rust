@@ -4,17 +4,15 @@ use std::ffi;
 use std::os::unix::prelude::OsStrExt;
 use std::path::Path;
 
-use anyhow::{anyhow, Result};
 use cgns_sys::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
+use self::base::Base;
 use crate::{
     traits::{CGNSNode, CGNSParent},
-    utils::{ier_cg_fn, CGNSError},
+    utils::{ier_cg_fn, Result},
     Library,
 };
-
-use self::base::Base;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct File {
@@ -49,6 +47,18 @@ impl File {
             desc: cg_fn,
             version,
         })
+    }
+
+    /// Save the CGNS file.
+    /// `copy_links` determines whether links are left intact or replaced by a copy of the associated data in the new file.
+    pub fn save_as<P: AsRef<Path>>(&self, path: P, copy_links: bool) -> Result {
+        let path = ffi::CString::new(path.as_ref().as_os_str().as_bytes())?;
+        ier_cg_fn!(cg_save_as(
+            self.desc,
+            path.as_ptr(),
+            CG_FILE_HDF5 as i32,
+            copy_links as i32
+        ))
     }
 
     unsafe fn close_by_ref(&self) -> Result<()> {

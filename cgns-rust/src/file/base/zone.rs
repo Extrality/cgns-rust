@@ -6,22 +6,19 @@ pub mod grid_coordinate;
 pub mod rigid_grid_motion;
 pub mod zone_grid_connectivity;
 
-use std::ffi;
-
-use anyhow::{anyhow, Result};
+use anyhow::anyhow;
 use cgns_sys::*;
 
 use self::boundary_conditions::BC;
 use self::elements::Element;
 use self::flow_solution::FlowSolution;
 use self::grid_coordinate::GridCoordinates;
+use super::Base;
+use crate::utils::{ier_cg_fn, CGIO_NAME_BUFFER_LENGTH};
 use crate::{
     traits::{CGNSNode, CGNSNodeIterator, CGNSParent},
-    utils::bytes2string,
+    utils::{bytes2string, Result},
 };
-
-use super::Base;
-use crate::utils::{ier_cg_fn, CGNSError, CGIO_NAME_BUFFER_LENGTH};
 
 #[derive(Debug, Clone, PartialEq)]
 /// CGNS node `Zone_t`
@@ -92,7 +89,8 @@ impl ZoneSize {
                 "Cannot handle zone_type {:?} with physical dimensions {}",
                 zone_type,
                 phys_dim
-            )),
+            )
+            .into()),
         }
     }
 }

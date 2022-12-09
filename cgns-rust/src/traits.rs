@@ -1,6 +1,6 @@
 use core::ffi;
 
-use anyhow::Result;
+use crate::utils::Result;
 
 pub trait CGNSNode<'a>: Sized {
     type Parent;

@@ -1,29 +1,11 @@
 use std::ffi;
 
-use anyhow::Result;
+use crate::errors::CGNSError;
 
 pub const CGIO_MAX_NAME_LENGTH: usize = 32;
 pub const CGIO_NAME_BUFFER_LENGTH: usize = CGIO_MAX_NAME_LENGTH + 1;
 
-#[derive(Debug, Clone, thiserror::Error)]
-pub struct CGNSError {
-    msg: String,
-}
-
-impl std::fmt::Display for CGNSError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "CGNS: {}", self.msg)
-    }
-}
-
-impl CGNSError {
-    pub fn new<T>(msg: T) -> Self
-    where
-        T: Into<String> + Sized,
-    {
-        Self { msg: msg.into() }
-    }
-}
+pub(crate) type Result<T = (), E = CGNSError> = ::core::result::Result<T, E>;
 
 pub(crate) fn bytes2string(bytes: &[u8]) -> Result<String> {
     // TODO: use ffi::CStr::from_bytes_until_nul once it's stabilized
@@ -42,13 +24,8 @@ macro_rules! ier_cg_fn {
             let err_code = $func_call;
             if err_code != i32::try_from(CG_OK).unwrap() {
                 let err_msg = cg_get_error();
-                if err_msg.is_null() {
-                    Err(anyhow!(CGNSError::new("Unknown CGNS ERROR")))
-                } else {
-                    let err_msg = ffi::CStr::from_ptr(err_msg);
-                    let err_msg = err_msg.to_str().unwrap_or("(invalid error string)");
-                    Err(anyhow!(CGNSError::new(err_msg)))
-                }
+                let err = crate::errors::CGNSLibraryError(err_msg);
+                Err(crate::errors::CGNSError::from(err))
             } else {
                 Ok(())
             }

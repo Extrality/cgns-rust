@@ -2,14 +2,13 @@
 
 use std::ffi;
 
-use anyhow::{anyhow, Result};
+use anyhow::anyhow;
 use cgns_sys::*;
 
+use super::GridCoordinates;
 use crate::file::base::zone::ZoneSize;
 use crate::traits::{CGNSNode, Read};
-use crate::utils::{bytes2string, ier_cg_fn, CGNSError, CGIO_NAME_BUFFER_LENGTH};
-
-use super::GridCoordinates;
+use crate::utils::{bytes2string, ier_cg_fn, Result, CGIO_NAME_BUFFER_LENGTH};
 
 #[derive(Debug, Clone)]
 /// CGNS node `DataArray_t` under a `GridCoordinates_t`
@@ -26,7 +25,7 @@ impl<'a> Read<'a, f32> for Coordinates<'a> {
         let nb_points = match &self.grid_coordinate.zone.size {
             ZoneSize::Unstructured(zs) => zs.n_vertex,
             _ => {
-                return Err(anyhow!("Can only handle unstructured zones"));
+                return Err(anyhow!("Can only handle unstructured zones").into());
             }
         };
         let cname = ffi::CString::new(self.name.as_bytes()).unwrap();

@@ -1,14 +1,11 @@
 //! Based on: <https://cgns.github.io/CGNS_docs_current/midlevel/grid.html>
 
-use std::ffi;
-
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Context};
 use cgns_sys::*;
 
-use crate::traits::CGNSNode;
-use crate::utils::{bytes2string, ier_cg_fn, CGNSError, CGIO_NAME_BUFFER_LENGTH};
-
 use super::Zone;
+use crate::traits::CGNSNode;
+use crate::utils::{bytes2string, ier_cg_fn, Result, CGIO_NAME_BUFFER_LENGTH};
 
 /// Get point per face of an element type
 pub fn npe(elem_id: u32) -> Result<i64> {
@@ -75,10 +72,13 @@ fn fix_missing_connectivity_offsets(
             }
             idx_connect
         }
-        _ => anyhow::bail!(
-            "Invalid elem type for missing connectivity offset: {:?}",
-            elem_type
-        ),
+        _ => {
+            return Err(anyhow!(
+                "Invalid elem type for missing connectivity offset: {:?}",
+                elem_type
+            )
+            .into())
+        }
     };
 
     Ok(connectivity_len)
@@ -107,22 +107,24 @@ impl<'a> Element<'a> {
         if self.connectivity_has_offsets() {
             if let Some(offsets) = &offsets {
                 if offsets.len() != self.offsets_len() as usize {
-                    anyhow::bail!(
+                    return Err(anyhow!(
                         "Offset buffer is of len {} but should be {}",
                         offsets.len(),
                         self.size()
-                    );
+                    )
+                    .into());
                 }
             } else {
-                anyhow::bail!("Offset buffer is required but is None");
+                return Err(anyhow!("Offset buffer is required but is None").into());
             }
         }
         if connectivity.len() != self.data_size()? as usize {
-            anyhow::bail!(
+            return Err(anyhow!(
                 "Connectivity buffer is of len {} but should be {}",
                 connectivity.len(),
                 self.data_size()?
-            );
+            )
+            .into());
         }
 
         let offset_ptr = if let Some(offsets) = &mut offsets {
