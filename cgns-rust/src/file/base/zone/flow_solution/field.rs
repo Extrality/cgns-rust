@@ -85,11 +85,11 @@ impl<'a> Field<'a> {
 
     pub fn size(&self) -> [i64; 3] {
         let mut range_max = [1; 3];
-        let zone_size = &self.flow_solution.zone.size();
+        let zs = &self.flow_solution.zone.size();
         let grid_location = self.location();
         match grid_location {
-            GridLocation_t::Vertex => range_max.copy_from_slice(zone_size.vertices),
-            GridLocation_t::CellCenter => range_max.copy_from_slice(zone_size.cells),
+            GridLocation_t::Vertex => range_max[..zs.vertices.len()].copy_from_slice(zs.vertices),
+            GridLocation_t::CellCenter => range_max[..zs.cells.len()].copy_from_slice(zs.cells),
             _ => panic!("Cannot get size of field located at {:?}", grid_location),
         }
         range_max
