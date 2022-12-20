@@ -1,4 +1,4 @@
-use std::ffi;
+use std::ffi::{self, CString};
 
 use crate::errors::CGNSError;
 
@@ -15,6 +15,13 @@ pub(crate) fn bytes2string(bytes: &[u8]) -> Result<String> {
         .unwrap_or(bytes.len() - 1);
     let bytes = &bytes[0..null_byte + 1];
     Ok(ffi::CStr::from_bytes_with_nul(bytes)?.to_str()?.to_owned())
+}
+
+pub(crate) fn string2bytes(str: &str) -> Result<CString> {
+    let str = format!("{str}\0");
+    let bytes = str.into_bytes();
+    let cstr = CString::from_vec_with_nul(bytes)?;
+    Ok(cstr)
 }
 
 /// EZ wrapper for CGNS functions that return `ier`

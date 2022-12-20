@@ -1,3 +1,5 @@
+//! Based on: <https://cgns.github.io/CGNS_docs_current/midlevel/structural.html#zone>
+
 pub mod arbitrary_grid_motion;
 pub mod boundary_conditions;
 pub mod elements;
@@ -6,7 +8,6 @@ pub mod grid_coordinate;
 pub mod rigid_grid_motion;
 pub mod zone_grid_connectivity;
 
-use anyhow::anyhow;
 use cgns_sys::*;
 
 use self::boundary_conditions::BC;
@@ -14,7 +15,7 @@ use self::elements::Element;
 use self::flow_solution::FlowSolution;
 use self::grid_coordinate::GridCoordinates;
 use super::Base;
-use crate::utils::{ier_cg_fn, CGIO_NAME_BUFFER_LENGTH};
+use crate::utils::{ier_cg_fn, string2bytes, CGIO_NAME_BUFFER_LENGTH};
 use crate::{
     traits::{CGNSNode, CGNSNodeIterator, CGNSParent},
     utils::{bytes2string, Result},
@@ -24,31 +25,48 @@ use crate::{
 /// CGNS node `Zone_t`
 pub struct Zone<'a> {
     pub name: String,
-    pub size: ZoneSize,
+    raw_size: [i64; 9],
     ztype: ZoneType_t,
-    pub index_dimension: i32,
     pub base: &'a Base<'a>,
     id: i32,
 }
 
+/// TODO: lots to improve here
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ZoneSize {
-    Structured3D(ZoneSizeStructured<3>),
-    Structured2D(ZoneSizeStructured<2>),
-    Unstructured(ZoneSizeUnstructured),
+pub struct ZoneSize<'a> {
+    pub vertices: &'a [i64],
+    /// For structured zones: `number_of_cells = number_of_vertices - 1`
+    pub cells: &'a [i64],
+    /// Always 0 for structured grids
+    pub bound_vertices: &'a [i64],
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ZoneSizeStructured<const DIMENSIONS: usize> {
-    pub n_vertex: [i64; DIMENSIONS],
-    pub n_cells: [i64; DIMENSIONS],
+pub struct ZoneSize1D {
+    pub vertices: i64,
+    pub cells: i64,
+    /// Always 0 for structured grids
+    pub bound_vertices: i64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ZoneSizeUnstructured {
-    pub n_vertex: i64,
-    pub n_cells: i64,
-    pub n_bound_vertex: i64,
+impl<'a> ZoneSize<'a> {
+    pub fn raw(&self) -> [i64; 9] {
+        let mut res = [0; 9];
+        let mut it = res.iter_mut();
+        for arr in [self.vertices, self.cells, self.bound_vertices] {
+            for val in arr {
+                *it.next().unwrap() = *val;
+            }
+        }
+        res
+    }
+    pub fn total_size(&self) -> ZoneSize1D {
+        ZoneSize1D {
+            vertices: self.vertices.iter().sum(),
+            cells: self.cells.iter().sum(),
+            bound_vertices: self.bound_vertices.iter().sum(),
+        }
+    }
 }
 
 impl<'a> Zone<'a> {
@@ -67,31 +85,59 @@ impl<'a> Zone<'a> {
     pub fn iter_boundary_conditions(&'a self) -> Result<CGNSNodeIterator<'a, BC<'a>>> {
         self.iter()
     }
-}
 
-impl ZoneSize {
-    fn from_raw_values(vals: [i64; 9], zone_type: ZoneType_t, phys_dim: i32) -> Result<Self> {
-        match (zone_type, phys_dim) {
-            (ZoneType_t::Structured, 2) => Ok(ZoneSize::Structured2D(ZoneSizeStructured {
-                n_vertex: [vals[0], vals[1]],
-                n_cells: [vals[2], vals[3]],
-            })),
-            (ZoneType_t::Structured, 3) => Ok(ZoneSize::Structured3D(ZoneSizeStructured {
-                n_vertex: [vals[0], vals[1], vals[2]],
-                n_cells: [vals[3], vals[4], vals[5]],
-            })),
-            (ZoneType_t::Unstructured, _) => Ok(ZoneSize::Unstructured(ZoneSizeUnstructured {
-                n_vertex: vals[0],
-                n_cells: vals[1],
-                n_bound_vertex: vals[2],
-            })),
-            _ => Err(anyhow!(
-                "Cannot handle zone_type {:?} with physical dimensions {}",
-                zone_type,
-                phys_dim
-            )
-            .into()),
+    pub fn new(
+        base: &'a Base,
+        name: String,
+        raw_size: [i64; 9],
+        ztype: ZoneType_t,
+    ) -> Result<Self> {
+        let c_name = string2bytes(&name)?;
+        let mut id = 0;
+        ier_cg_fn!(cg_zone_write(
+            base.file.id,
+            base.id,
+            c_name.as_ptr(),
+            raw_size.as_ptr(),
+            ztype,
+            &mut id
+        ))?;
+        Ok(Self {
+            name,
+            raw_size,
+            ztype,
+            base,
+            id,
+        })
+    }
+
+    pub fn size(&self) -> ZoneSize {
+        match (self.ztype, self.base.phys_dim) {
+            (ZoneType_t::Structured, 2) => ZoneSize {
+                vertices: &self.raw_size[0..2],
+                cells: &self.raw_size[2..4],
+                bound_vertices: &self.raw_size[4..6],
+            },
+            (ZoneType_t::Structured, 3) => ZoneSize {
+                vertices: &self.raw_size[0..3],
+                cells: &self.raw_size[3..6],
+                bound_vertices: &self.raw_size[6..9],
+            },
+            (ZoneType_t::Unstructured, _) => ZoneSize {
+                vertices: &self.raw_size[0..1],
+                cells: &self.raw_size[1..2],
+                bound_vertices: &self.raw_size[2..3],
+            },
+            _ => ZoneSize {
+                vertices: &[],
+                cells: &[],
+                bound_vertices: &[],
+            },
         }
+    }
+
+    pub fn total_size(&self) -> ZoneSize1D {
+        self.size().total_size()
     }
 }
 
@@ -99,35 +145,26 @@ impl<'a> CGNSNode<'a> for Zone<'a> {
     type Parent = Base<'a>;
 
     fn from_id(parent: &'a Self::Parent, id: i32) -> Result<Self> {
-        let mut size = [0; 9];
+        let mut raw_size = [0; 9];
         let mut name_raw = [0u8; CGIO_NAME_BUFFER_LENGTH];
         let mut ztype = ZoneType_t::ZoneTypeNull;
-        let mut index_dimension = 0;
 
         ier_cg_fn!(cg_zone_read(
             parent.file.id(),
             parent.id(),
             id,
             name_raw.as_mut_ptr().cast(),
-            size.as_mut_ptr()
+            raw_size.as_mut_ptr()
         ))?;
 
         ier_cg_fn!(cg_zone_type(parent.file.id(), parent.id(), id, &mut ztype))?;
-        ier_cg_fn!(cg_index_dim(
-            parent.file.id(),
-            parent.id(),
-            id,
-            &mut index_dimension
-        ))?;
 
         let name = bytes2string(&name_raw)?;
-        let size = ZoneSize::from_raw_values(size, ztype, parent.phys_dim)?;
 
         Ok(Zone {
             name,
-            size,
+            raw_size,
             ztype,
-            index_dimension,
             base: parent,
             id,
         })
@@ -189,5 +226,47 @@ impl<'a> CGNSParent<'a, BC<'a>> for Zone<'a> {
             &mut number
         ))?;
         Ok(number)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use testdir::testdir;
+
+    use super::*;
+    use crate::file::tests::cgns_file;
+
+    #[test]
+    fn can_write_zone() {
+        let name_1 = "Stratovarius".to_string();
+        let name_2 = "ElementEighty".to_string();
+        let size1 = ZoneSize {
+            vertices: &[9999],
+            cells: &[999],
+            bound_vertices: &[123],
+        };
+        let size2 = ZoneSize {
+            vertices: &[12, 12, 12],
+            cells: &[11, 11, 11],
+            bound_vertices: &[0, 0, 0],
+        };
+
+        // 1. Can I write zones ?
+        let (_p, f) = cgns_file(testdir!(), 0);
+        let b = Base::new(&f, "ArcticBase".to_string(), 3, 3).unwrap();
+        let z1 = Zone::new(&b, name_1.clone(), [1; 9], ZoneType_t::Unstructured).unwrap();
+        let z2 = Zone::new(&b, name_2, size1.raw(), ZoneType_t::Unstructured).unwrap();
+
+        assert_eq!(z1.id, 1);
+        assert_eq!(z1.name, name_1);
+        assert_eq!(z2.id, 2);
+        assert_eq!(z2.raw_size, [9999, 999, 123, 0, 0, 0, 0, 0, 0]);
+
+        // 2. Can I overwrite and read them ?
+        let z1_b = Zone::new(&b, name_1, size2.raw(), ZoneType_t::Structured).unwrap();
+
+        let zones: Vec<_> = b.iter_zones().unwrap().collect();
+        assert_eq!(zones.as_slice(), &[z1_b, z2]);
+        f.close().unwrap();
     }
 }

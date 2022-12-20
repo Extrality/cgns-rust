@@ -2,11 +2,9 @@
 
 use std::ffi;
 
-use anyhow::anyhow;
 use cgns_sys::*;
 
 use super::GridCoordinates;
-use crate::file::base::zone::ZoneSize;
 use crate::traits::{CGNSNode, Read};
 use crate::utils::{bytes2string, ier_cg_fn, Result, CGIO_NAME_BUFFER_LENGTH};
 
@@ -22,12 +20,7 @@ pub struct Coordinates<'a> {
 impl<'a> Read<'a, f32> for Coordinates<'a> {
     fn read(&self) -> Result<Vec<f32>> {
         let one = 1;
-        let nb_points = match &self.grid_coordinate.zone.size {
-            ZoneSize::Unstructured(zs) => zs.n_vertex,
-            _ => {
-                return Err(anyhow!("Can only handle unstructured zones").into());
-            }
-        };
+        let nb_points = self.grid_coordinate.zone.total_size().vertices;
         let cname = ffi::CString::new(self.name.as_bytes()).unwrap();
         let mut data = vec![0f32; nb_points as usize];
 

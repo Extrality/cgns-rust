@@ -94,8 +94,9 @@ impl<'a> Element<'a> {
         )
     }
 
-    /// A method to read connectivity values directly to a buffer, to avoid copying large amount of data
-    /// See [`read_connectivity()`]
+    /// A method to read connectivity values directly to a buffer, to avoid copying large amount of data.
+    /// See [`Self::read_connectivity()`].
+    ///
     /// Because of an issue in the CGNS lib (caused by CGNS 3.4.1),
     /// the length of the connectivity might change and is returned by this function.
     pub fn read_connectivity_to_buff(
@@ -266,7 +267,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(new_conn_len, 13);
-        assert_eq!(&connectivity[..new_conn_len], &[1, 2, 3, 3, 2, 1, 4, 4, 3, 2, 1, 1, 2]);
+        assert_eq!(
+            &connectivity[..new_conn_len],
+            &[1, 2, 3, 3, 2, 1, 4, 4, 3, 2, 1, 1, 2]
+        );
         assert_eq!(offsets, [0, 3, 7, 11, 13]);
     }
 }

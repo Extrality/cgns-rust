@@ -1,38 +1,56 @@
+//! Based on: <https://cgns.github.io/CGNS_docs_current/midlevel/structural.html#base>
+
 pub mod zone;
 
+use std::ffi::CString;
+
 use cgns_sys::*;
-use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use self::zone::Zone;
-
 use super::File;
-use crate::{
-    traits::{CGNSNode, CGNSParent},
-    utils::{bytes2string, ier_cg_fn, Result, CGIO_NAME_BUFFER_LENGTH},
-};
-
-#[derive(Debug, Clone, PartialEq, Eq, TryFromPrimitive, IntoPrimitive)]
-#[repr(i32)]
-pub enum CellDimension {
-    Line = 1,
-    Surface = 2,
-    Volume = 3,
-}
+use crate::traits::{CGNSNode, CGNSNodeIterator, CGNSParent};
+use crate::utils::{bytes2string, ier_cg_fn, string2bytes, Result, CGIO_NAME_BUFFER_LENGTH};
 
 #[derive(Debug, Clone, PartialEq)]
 /// CGNS node `CGNSBase_t`
 pub struct Base<'a> {
     pub name: String,
     /// Dimension of the cells
-    pub cell_dim: CellDimension,
+    pub cell_dim: i32,
     /// Number of coordinates required to define a vector in the field.
     pub phys_dim: i32,
-    pub id: i32,
-    pub file: &'a File,
+    id: i32,
+    file: &'a File,
 }
 
 impl<'a> Base<'a> {
     // TODO: DimensionalUnits_t (cg_unitsfull_read)
+    pub fn iter_zones(&'a self) -> Result<CGNSNodeIterator<'a, Zone<'a>>> {
+        self.iter()
+    }
+
+    /// Warning:
+    ///
+    /// For CGNS files opened in with [`crate::file::OpenFileMode::Modify`],
+    /// if a base with the same name already exists, it will be overwritten !
+    pub fn new(file: &'a File, name: String, cell_dim: i32, phys_dim: i32) -> Result<Self> {
+        let c_name: CString = string2bytes(&name)?;
+        let mut id = 0;
+        ier_cg_fn!(cg_base_write(
+            file.id(),
+            c_name.as_ptr(),
+            cell_dim,
+            phys_dim,
+            &mut id
+        ))?;
+        Ok(Base {
+            name,
+            cell_dim,
+            phys_dim,
+            id,
+            file,
+        })
+    }
 }
 
 impl<'a> CGNSNode<'a> for Base<'a> {
@@ -51,7 +69,6 @@ impl<'a> CGNSNode<'a> for Base<'a> {
             &mut phys_dim
         ))?;
         let name = bytes2string(&name)?;
-        let cell_dim = CellDimension::try_from(cell_dim).unwrap();
 
         Ok(Base {
             name,
@@ -74,5 +91,44 @@ impl<'a> CGNSParent<'a, Zone<'a>> for Base<'a> {
         let mut number = 0;
         ier_cg_fn!(cg_nzones(self.file.id(), self.id, &mut number))?;
         Ok(number)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use testdir::testdir;
+
+    use super::super::tests::*;
+    use super::*;
+    use crate::file::OpenFileMode;
+
+    #[test]
+    fn can_write_base() {
+        let name_hw = "HelloWorld".to_string();
+        let name_zz = "zozo".to_string();
+
+        // 1. Can I write bases ?
+        let (p, f) = cgns_file(testdir!(), 0);
+        let base_1 = Base::new(&f, name_hw.clone(), 3, 3).unwrap();
+        assert_eq!(base_1.id, 1);
+        let base_2 = Base::new(&f, name_zz, 1, 2).unwrap();
+        assert_eq!(base_2.id, 2);
+
+        // 2. Can I read them back ?
+        unsafe { f.close_by_ref().unwrap() };
+        let f_bis = File::new(p, OpenFileMode::Modify).unwrap();
+        let names: Vec<_> = f_bis.iter().unwrap().map(|n| n.name).collect();
+        assert_eq!(
+            names.as_slice(),
+            ["HelloWorld".to_string(), "zozo".to_string()]
+        );
+        // 3. Can I overwrite them ?
+        let base_1_bis = Base::new(&f_bis, name_hw, 1, 1).unwrap();
+        assert_eq!(base_1_bis.id, base_1.id);
+        assert_ne!(base_1_bis.cell_dim, base_1.cell_dim);
+
+        // Cleanup
+        std::mem::forget(f);
+        f_bis.close().unwrap();
     }
 }

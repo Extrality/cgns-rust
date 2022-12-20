@@ -1,3 +1,5 @@
+//! Based on: <https://cgns.github.io/CGNS_docs_current/midlevel/fileops.html>
+
 pub mod base;
 
 use std::ffi;
@@ -9,7 +11,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use self::base::Base;
 use crate::{
-    traits::{CGNSNode, CGNSParent},
+    traits::{CGNSNode, CGNSNodeIterator, CGNSParent},
     utils::{ier_cg_fn, Result},
     Library,
 };
@@ -17,7 +19,7 @@ use crate::{
 #[derive(Debug, Clone, PartialEq)]
 pub struct File {
     /// File ID
-    desc: ffi::c_int,
+    id: ffi::c_int,
     /// File CGNS version
     pub version: f32,
 }
@@ -43,10 +45,7 @@ impl File {
         ier_cg_fn!(cg_open(raw_path.as_ptr(), mode as i32, &mut cg_fn,))?;
         ier_cg_fn!(cg_version(cg_fn, &mut version))?;
 
-        Ok(Self {
-            desc: cg_fn,
-            version,
-        })
+        Ok(Self { id: cg_fn, version })
     }
 
     /// Save the CGNS file.
@@ -54,21 +53,27 @@ impl File {
     pub fn save_as<P: AsRef<Path>>(&self, path: P, copy_links: bool) -> Result {
         let path = ffi::CString::new(path.as_ref().as_os_str().as_bytes())?;
         ier_cg_fn!(cg_save_as(
-            self.desc,
+            self.id,
             path.as_ptr(),
             CG_FILE_HDF5 as i32,
             copy_links as i32
         ))
     }
 
+    /// This closes self without consuming it. Necessary to close the file in [`Drop`]
+    #[allow(unused_unsafe)]
     unsafe fn close_by_ref(&self) -> Result<()> {
-        ier_cg_fn!(cg_close(self.desc))
+        ier_cg_fn!(cg_close(self.id))
     }
 
     pub fn close(self) -> Result<()> {
         unsafe { self.close_by_ref()? };
         std::mem::forget(self);
         Ok(())
+    }
+
+    pub fn iter_bases(&self) -> Result<CGNSNodeIterator<Base>> {
+        self.iter()
     }
 }
 
@@ -84,7 +89,7 @@ impl Drop for File {
 impl<'a> CGNSNode<'a> for File {
     type Parent = Library;
     fn id(&self) -> i32 {
-        self.desc
+        self.id
     }
     fn parent(&self) -> &Self::Parent {
         panic!();
@@ -99,5 +104,50 @@ impl<'a> CGNSParent<'a, Base<'a>> for File {
         let mut number = 0;
         ier_cg_fn!(cg_nbases(self.id(), &mut number))?;
         Ok(number)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+    use testdir::testdir;
+
+    macro_rules! fn_name {
+        () => {{
+            fn f() {}
+            fn type_name_of<T>(_: T) -> &'static str {
+                std::any::type_name::<T>()
+            }
+            let name = type_name_of(f);
+            &name[..name.len() - 3]
+        }};
+    }
+
+    /// returns a CGNS file in [`OpenFileMode::Modify`] mode.
+    pub fn cgns_file(dir: PathBuf, id: u32) -> (PathBuf, File) {
+        let file_name = format!("{}-{}.cgns", fn_name!(), id);
+        let path = dir.join(file_name);
+        let file = File::new(path.clone(), OpenFileMode::Write).unwrap();
+        file.close().unwrap();
+        let file = File::new(path.clone(), OpenFileMode::Modify).unwrap();
+        (path, file)
+    }
+
+    #[test]
+    fn can_write_cgns_file() {
+        let (p, f) = cgns_file(testdir!(), 0);
+        f.close().unwrap();
+        assert!(p.is_file());
+    }
+
+    #[test]
+    fn can_open_cgns_file() {
+        let (p, f) = cgns_file(testdir!(), 1);
+        f.close().unwrap();
+        assert!(p.is_file());
+        let f = File::new(p, OpenFileMode::Read).unwrap();
+        assert_eq!(f.num_child().unwrap(), 0);
+        f.close().unwrap();
     }
 }

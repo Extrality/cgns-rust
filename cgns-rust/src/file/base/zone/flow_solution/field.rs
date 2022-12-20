@@ -4,15 +4,11 @@ use core::panic;
 use std::ffi;
 
 use cgns_sys::*;
-use heapless;
 
 use super::FlowSolution;
 use crate::traits::{CGNSNode, Read};
 use crate::utils::bytes2string;
-use crate::{
-    file::base::zone::ZoneSize,
-    utils::{ier_cg_fn, Result, CGIO_NAME_BUFFER_LENGTH},
-};
+use crate::utils::{ier_cg_fn, Result, CGIO_NAME_BUFFER_LENGTH};
 
 #[derive(Debug, Clone)]
 /// CGNS node `DataArray_t` under a `FlowSolution_t`
@@ -26,7 +22,7 @@ pub struct Field<'a> {
 impl<'a> Read<'a, f32> for Field<'a> {
     fn read(&self) -> Result<Vec<f32>> {
         let range_min = [1, 1, 1]; // TODO ? Rind ?
-        let range_max = self.shape();
+        let range_max = self.size();
         let len = range_max.iter().product::<i64>() as usize;
         let mut data = vec![0f32; len];
         let name = ffi::CString::new(self.name.as_bytes()).unwrap();
@@ -87,33 +83,14 @@ impl<'a> Field<'a> {
         &self.flow_solution.grid_location
     }
 
-    pub fn shape(&self) -> heapless::Vec<i64, 3> {
-        let mut range_max = heapless::Vec::new();
-        let zone_size = &self.flow_solution.zone.size;
+    pub fn size(&self) -> [i64; 3] {
+        let mut range_max = [1; 3];
+        let zone_size = &self.flow_solution.zone.size();
         let grid_location = self.location();
-        match (zone_size, grid_location) {
-            (ZoneSize::Unstructured(zu), GridLocation_t::Vertex) => {
-                range_max.push(zu.n_vertex).unwrap();
-            }
-            (ZoneSize::Unstructured(zu), GridLocation_t::CellCenter) => {
-                range_max.push(zu.n_cells).unwrap();
-            }
-            (ZoneSize::Structured2D(zs2), GridLocation_t::Vertex) => {
-                range_max.copy_from_slice(&zs2.n_vertex);
-            }
-            (ZoneSize::Structured2D(zs2), GridLocation_t::CellCenter) => {
-                range_max.copy_from_slice(&zs2.n_cells);
-            }
-            (ZoneSize::Structured3D(zs3), GridLocation_t::Vertex) => {
-                range_max.copy_from_slice(&zs3.n_vertex);
-            }
-            (ZoneSize::Structured3D(zs3), GridLocation_t::CellCenter) => {
-                range_max.copy_from_slice(&zs3.n_cells);
-            }
-            _ => panic!(
-                "Case not handled (yet): zone_size: {:?} grid_location: {:?}",
-                zone_size, grid_location
-            ), // TODO !
+        match grid_location {
+            GridLocation_t::Vertex => range_max.copy_from_slice(zone_size.vertices),
+            GridLocation_t::CellCenter => range_max.copy_from_slice(zone_size.cells),
+            _ => panic!("Cannot get size of field located at {:?}", grid_location),
         }
         range_max
     }
