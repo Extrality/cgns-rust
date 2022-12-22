@@ -12,12 +12,15 @@ macro_rules! log {
 }
 
 #[derive(Debug)]
-struct ParseCallbacks ();
+struct ParseCallbacks();
 
 impl bindgen::callbacks::ParseCallbacks for ParseCallbacks {
     fn add_derives(&self, info: &bindgen::callbacks::DeriveInfo<'_>) -> Vec<String> {
         if info.name == "ElementType_t" {
-            vec!["num_derive::FromPrimitive".into(), "num_derive::ToPrimitive".into()]
+            vec![
+                "num_derive::FromPrimitive".into(),
+                "num_derive::ToPrimitive".into(),
+            ]
         } else {
             vec![]
         }
