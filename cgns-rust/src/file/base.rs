@@ -20,7 +20,7 @@ pub struct Base<'a> {
     /// Number of coordinates required to define a vector in the field.
     pub phys_dim: i32,
     id: i32,
-    file: &'a File,
+    file: &'a File<'a>,
 }
 
 impl<'a> Base<'a> {
@@ -33,7 +33,7 @@ impl<'a> Base<'a> {
     ///
     /// For CGNS files opened in with [`crate::file::OpenFileMode::Modify`],
     /// if a base with the same name already exists, it will be overwritten !
-    pub fn new(file: &'a File, name: String, cell_dim: i32, phys_dim: i32) -> Result<Self> {
+    pub fn write(file: &'a File, name: String, cell_dim: i32, phys_dim: i32) -> Result<Self> {
         let c_name: CString = string2bytes(&name)?;
         let mut id = 0;
         ier_cg_fn!(cg_base_write(
@@ -54,7 +54,7 @@ impl<'a> Base<'a> {
 }
 
 impl<'a> CGNSNode<'a> for Base<'a> {
-    type Parent = File;
+    type Parent = File<'a>;
 
     fn from_id(parent: &'a Self::Parent, id: i32) -> Result<Self> {
         let mut name = [0u8; CGIO_NAME_BUFFER_LENGTH];
@@ -101,29 +101,31 @@ mod tests {
     use super::super::tests::*;
     use super::*;
     use crate::file::OpenFileMode;
+    use crate::library::Library;
 
     #[test]
     fn can_write_base() {
         let name_hw = "HelloWorld".to_string();
         let name_zz = "zozo".to_string();
+        let library = Library::new().unwrap();
 
         // 1. Can I write bases ?
-        let (p, f) = cgns_file(testdir!(), 0);
-        let base_1 = Base::new(&f, name_hw.clone(), 3, 3).unwrap();
+        let (p, f) = cgns_file(&library, testdir!(), 0);
+        let base_1 = Base::write(&f, name_hw.clone(), 3, 3).unwrap();
         assert_eq!(base_1.id, 1);
-        let base_2 = Base::new(&f, name_zz, 1, 2).unwrap();
+        let base_2 = Base::write(&f, name_zz, 1, 2).unwrap();
         assert_eq!(base_2.id, 2);
 
         // 2. Can I read them back ?
         unsafe { f.close_by_ref().unwrap() };
-        let f_bis = File::new(p, OpenFileMode::Modify).unwrap();
+        let f_bis = library.open(p, OpenFileMode::Modify).unwrap();
         let names: Vec<_> = f_bis.iter().unwrap().map(|n| n.name).collect();
         assert_eq!(
             names.as_slice(),
             ["HelloWorld".to_string(), "zozo".to_string()]
         );
         // 3. Can I overwrite them ?
-        let base_1_bis = Base::new(&f_bis, name_hw, 1, 1).unwrap();
+        let base_1_bis = Base::write(&f_bis, name_hw, 1, 1).unwrap();
         assert_eq!(base_1_bis.id, base_1.id);
         assert_ne!(base_1_bis.cell_dim, base_1.cell_dim);
 

@@ -86,7 +86,7 @@ impl<'a> Zone<'a> {
         self.iter()
     }
 
-    pub fn new(
+    pub fn write(
         base: &'a Base,
         name: String,
         raw_size: [i64; 9],
@@ -234,7 +234,7 @@ mod tests {
     use testdir::testdir;
 
     use super::*;
-    use crate::file::tests::cgns_file;
+    use crate::{file::tests::cgns_file, library::Library};
 
     #[test]
     fn can_write_zone() {
@@ -250,12 +250,13 @@ mod tests {
             cells: &[11, 11, 11],
             bound_vertices: &[0, 0, 0],
         };
+        let lib = Library::new().unwrap();
 
         // 1. Can I write zones ?
-        let (_p, f) = cgns_file(testdir!(), 0);
-        let b = Base::new(&f, "ArcticBase".to_string(), 3, 3).unwrap();
-        let z1 = Zone::new(&b, name_1.clone(), [1; 9], ZoneType_t::Unstructured).unwrap();
-        let z2 = Zone::new(&b, name_2, size1.raw(), ZoneType_t::Unstructured).unwrap();
+        let (_p, f) = cgns_file(&lib, testdir!(), 0);
+        let b = Base::write(&f, "ArcticBase".to_string(), 3, 3).unwrap();
+        let z1 = Zone::write(&b, name_1.clone(), [1; 9], ZoneType_t::Unstructured).unwrap();
+        let z2 = Zone::write(&b, name_2, size1.raw(), ZoneType_t::Unstructured).unwrap();
 
         assert_eq!(z1.id, 1);
         assert_eq!(z1.name, name_1);
@@ -263,7 +264,7 @@ mod tests {
         assert_eq!(z2.raw_size, [9999, 999, 123, 0, 0, 0, 0, 0, 0]);
 
         // 2. Can I overwrite and read them ?
-        let z1_b = Zone::new(&b, name_1, size2.raw(), ZoneType_t::Structured).unwrap();
+        let z1_b = Zone::write(&b, name_1, size2.raw(), ZoneType_t::Structured).unwrap();
 
         let zones: Vec<_> = b.iter_zones().unwrap().collect();
         assert_eq!(zones.as_slice(), &[z1_b, z2]);

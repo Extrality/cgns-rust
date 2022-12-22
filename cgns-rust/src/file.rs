@@ -3,6 +3,7 @@
 pub mod base;
 
 use std::ffi;
+use std::marker::PhantomData;
 use std::os::unix::prelude::OsStrExt;
 use std::path::Path;
 
@@ -10,18 +11,17 @@ use cgns_sys::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use self::base::Base;
-use crate::{
-    traits::{CGNSNode, CGNSNodeIterator, CGNSParent},
-    utils::{ier_cg_fn, Result},
-    Library,
-};
+use crate::library::Library;
+use crate::traits::{CGNSNode, CGNSNodeIterator, CGNSParent};
+use crate::utils::{ier_cg_fn, Result};
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct File {
+pub struct File<'l> {
     /// File ID
     id: ffi::c_int,
     /// File CGNS version
     pub version: f32,
+    _library: PhantomData<&'l ()>,
 }
 
 #[repr(u32)]
@@ -32,8 +32,8 @@ pub enum OpenFileMode {
     Modify = CG_MODE_MODIFY,
 }
 
-impl File {
-    pub fn new<P>(path: P, mode: OpenFileMode) -> Result<Self>
+impl<'l> File<'l> {
+    pub fn new<P>(_lib: &'l Library, path: P, mode: OpenFileMode) -> Result<Self>
     where
         P: AsRef<Path> + Sized,
     {
@@ -45,7 +45,11 @@ impl File {
         ier_cg_fn!(cg_open(raw_path.as_ptr(), mode as i32, &mut cg_fn,))?;
         ier_cg_fn!(cg_version(cg_fn, &mut version))?;
 
-        Ok(Self { id: cg_fn, version })
+        Ok(Self {
+            id: cg_fn,
+            version,
+            _library: PhantomData,
+        })
     }
 
     /// Save the CGNS file.
@@ -77,7 +81,7 @@ impl File {
     }
 }
 
-impl Drop for File {
+impl<'l> Drop for File<'l> {
     fn drop(&mut self) {
         let res = unsafe { self.close_by_ref() };
         if let Err(e) = res {
@@ -86,7 +90,7 @@ impl Drop for File {
     }
 }
 
-impl<'a> CGNSNode<'a> for File {
+impl<'l> CGNSNode<'l> for File<'l> {
     type Parent = Library;
     fn id(&self) -> i32 {
         self.id
@@ -94,12 +98,12 @@ impl<'a> CGNSNode<'a> for File {
     fn parent(&self) -> &Self::Parent {
         panic!();
     }
-    fn from_id(_parent: &'a Self::Parent, _id: i32) -> Result<Self> {
+    fn from_id(_parent: &'l Self::Parent, _id: i32) -> Result<Self> {
         panic!();
     }
 }
 
-impl<'a> CGNSParent<'a, Base<'a>> for File {
+impl<'l> CGNSParent<'l, Base<'l>> for File<'l> {
     fn num_child(&self) -> Result<i32> {
         let mut number = 0;
         ier_cg_fn!(cg_nbases(self.id(), &mut number))?;
@@ -125,28 +129,30 @@ mod tests {
     }
 
     /// returns a CGNS file in [`OpenFileMode::Modify`] mode.
-    pub fn cgns_file(dir: PathBuf, id: u32) -> (PathBuf, File) {
+    pub fn cgns_file(library: &Library, dir: PathBuf, id: u32) -> (PathBuf, File) {
         let file_name = format!("{}-{}.cgns", fn_name!(), id);
         let path = dir.join(file_name);
-        let file = File::new(path.clone(), OpenFileMode::Write).unwrap();
+        let file = library.open(path.clone(), OpenFileMode::Write).unwrap();
         file.close().unwrap();
-        let file = File::new(path.clone(), OpenFileMode::Modify).unwrap();
+        let file = library.open(path.clone(), OpenFileMode::Modify).unwrap();
         (path, file)
     }
 
     #[test]
     fn can_write_cgns_file() {
-        let (p, f) = cgns_file(testdir!(), 0);
+        let library = Library::new().unwrap();
+        let (p, f) = cgns_file(&library, testdir!(), 0);
         f.close().unwrap();
         assert!(p.is_file());
     }
 
     #[test]
     fn can_open_cgns_file() {
-        let (p, f) = cgns_file(testdir!(), 1);
+        let library = Library::new().unwrap();
+        let (p, f) = cgns_file(&library, testdir!(), 1);
         f.close().unwrap();
         assert!(p.is_file());
-        let f = File::new(p, OpenFileMode::Read).unwrap();
+        let f = library.open(p, OpenFileMode::Read).unwrap();
         assert_eq!(f.num_child().unwrap(), 0);
         f.close().unwrap();
     }
