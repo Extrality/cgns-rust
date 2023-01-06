@@ -2,18 +2,18 @@
 
 pub mod arbitrary_grid_motion;
 pub mod boundary_conditions;
-pub mod elements;
 pub mod flow_solution;
 pub mod grid_coordinate;
 pub mod rigid_grid_motion;
+pub mod section;
 pub mod zone_grid_connectivity;
 
 use cgns_sys::*;
 
 use self::boundary_conditions::BC;
-use self::elements::Element;
 use self::flow_solution::FlowSolution;
 use self::grid_coordinate::GridCoordinates;
+use self::section::Section;
 use super::Base;
 use crate::utils::{ier_cg_fn, string2bytes, CGIO_NAME_BUFFER_LENGTH};
 use crate::{
@@ -74,7 +74,7 @@ impl<'a> Zone<'a> {
         self.iter()
     }
 
-    pub fn iter_elements(&'a self) -> Result<CGNSNodeIterator<'a, Element<'a>>> {
+    pub fn iter_elements(&'a self) -> Result<CGNSNodeIterator<'a, Section<'a>>> {
         self.iter()
     }
 
@@ -203,7 +203,7 @@ impl<'a> CGNSParent<'a, GridCoordinates<'a>> for Zone<'a> {
     }
 }
 
-impl<'a> CGNSParent<'a, Element<'a>> for Zone<'a> {
+impl<'a> CGNSParent<'a, Section<'a>> for Zone<'a> {
     fn num_child(&self) -> Result<i32> {
         let mut number = 0;
         ier_cg_fn!(cg_nsections(

@@ -1,4 +1,6 @@
-//! Based on: <https://cgns.github.io/CGNS_docs_current/midlevel/grid.html>
+//! Module dedicated to sections, which hold element connectivity.
+//!
+//! Based on: <https://cgns.github.io/CGNS_docs_current/midlevel/grid.html#elements>
 
 use anyhow::{anyhow, Context};
 use cgns_sys::*;
@@ -8,6 +10,7 @@ use crate::traits::CGNSNode;
 use crate::utils::{bytes2string, ier_cg_fn, Result, CGIO_NAME_BUFFER_LENGTH};
 
 /// Get point per face of an element type
+#[inline]
 pub fn npe(elem_id: u32) -> Result<i64> {
     let elem_type = unsafe { std::mem::transmute(elem_id) };
     let mut npe = 0;
@@ -17,8 +20,9 @@ pub fn npe(elem_id: u32) -> Result<i64> {
 
 #[derive(Debug, Clone)]
 /// CGNS node `Elements_t`
-pub struct Element<'a> {
+pub struct Section<'a> {
     pub name: String,
+    /// Type of enclose elements
     pub elem_type: ElementType_t,
     /// Index of first element in the section.
     pub elem_start: i64,
@@ -38,7 +42,9 @@ pub struct Connectivity {
     pub offsets: Option<Vec<i64>>,
 }
 
-/// Special fix for CGNS 3.4.1.
+/// Special fix for CGNS `3.4.1`.
+/// Converts CGNS 3.3 style connectivity to CGNS 4 style (<https://cgns.github.io/ProposedExtensions/NGON-CPEX-0041-v0.16.pdf>).
+///
 /// Returns the new length of `connectivity`.
 fn fix_missing_connectivity_offsets(
     connectivity: &mut [i64],
@@ -84,7 +90,7 @@ fn fix_missing_connectivity_offsets(
     Ok(connectivity_len)
 }
 
-impl<'a> Element<'a> {
+impl<'a> Section<'a> {
     /// Whether the connectivity is composed of `connectivity` and `offsets` or not
     #[inline]
     pub fn connectivity_has_offsets(&self) -> bool {
@@ -208,7 +214,7 @@ impl<'a> Element<'a> {
     }
 }
 
-impl<'a> CGNSNode<'a> for Element<'a> {
+impl<'a> CGNSNode<'a> for Section<'a> {
     type Parent = Zone<'a>;
 
     fn from_id(parent: &'a Self::Parent, id: i32) -> Result<Self> {
@@ -233,7 +239,7 @@ impl<'a> CGNSNode<'a> for Element<'a> {
         ))?;
         let name = bytes2string(&elem_name)?;
 
-        Ok(Element {
+        Ok(Section {
             name,
             elem_type,
             elem_start: start,

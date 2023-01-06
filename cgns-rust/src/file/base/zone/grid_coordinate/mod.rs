@@ -1,4 +1,4 @@
-//! Based on: <https://cgns.github.io/CGNS_docs_current/midlevel/grid.html>
+//! Based on: <https://cgns.github.io/CGNS_docs_current/midlevel/grid.html#gridcoordinates>
 
 pub mod coords;
 
@@ -10,7 +10,7 @@ use cgns_sys::*;
 use self::coords::Coordinates;
 use super::Zone;
 use crate::traits::{CGNSNode, CGNSParent};
-use crate::utils::{bytes2string, ier_cg_fn, Result, CGIO_NAME_BUFFER_LENGTH};
+use crate::utils::{bytes2string, ier_cg_fn, string2bytes, Result, CGIO_NAME_BUFFER_LENGTH};
 
 #[derive(Debug, Clone)]
 /// CGNS node `GridCoordinates_t`
@@ -38,6 +38,34 @@ impl<'a> GridCoordinates<'a> {
         } else {
             Some(bounding_box)
         }
+    }
+
+    pub fn write(zone: &'a Zone, name: String) -> Result<Self> {
+        let cstr = string2bytes(&name)?;
+        let mut id = 0;
+
+        ier_cg_fn!(cg_grid_write(
+            zone.base.file.id,
+            zone.base.id,
+            zone.id,
+            cstr.as_ptr(),
+            &mut id
+        ))?;
+
+        Ok(Self { name, id, zone })
+    }
+
+    pub fn write_bounding_box(&self, bbox: &[f32; 3]) -> Result<()> {
+        ier_cg_fn!(cg_grid_bounding_box_write(
+            self.zone.base.file.id,
+            self.zone.base.id,
+            self.zone.id,
+            self.id,
+            DataType_t::RealSingle,
+            bbox.as_ptr().cast_mut().cast()
+        ))?;
+
+        Ok(())
     }
 }
 
