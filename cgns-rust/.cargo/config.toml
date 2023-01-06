@@ -1,3 +1,0 @@
-[env]
-# CGNS (without pcgns) only works single threaded...
-RUST_TEST_THREADS = "1"

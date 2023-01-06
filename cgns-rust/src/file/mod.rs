@@ -11,7 +11,7 @@ use cgns_sys::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use self::base::Base;
-use crate::library::Library;
+use crate::library::LibraryHandle;
 use crate::traits::{CGNSNode, CGNSNodeIterator, CGNSParent};
 use crate::utils::{ier_cg_fn, Result};
 
@@ -33,7 +33,7 @@ pub enum OpenFileMode {
 }
 
 impl<'l> File<'l> {
-    pub fn new<P>(_lib: &'l Library, path: P, mode: OpenFileMode) -> Result<Self>
+    pub fn new<P>(_lib: &'l LibraryHandle, path: P, mode: OpenFileMode) -> Result<Self>
     where
         P: AsRef<Path> + Sized,
     {
@@ -91,7 +91,7 @@ impl<'l> Drop for File<'l> {
 }
 
 impl<'l> CGNSNode<'l> for File<'l> {
-    type Parent = Library;
+    type Parent = LibraryHandle;
     fn id(&self) -> i32 {
         self.id
     }
@@ -129,7 +129,7 @@ mod tests {
     }
 
     /// returns a CGNS file in [`OpenFileMode::Modify`] mode.
-    pub fn cgns_file(library: &Library, dir: PathBuf, id: u32) -> (PathBuf, File) {
+    pub fn cgns_file(library: &LibraryHandle, dir: PathBuf, id: u32) -> (PathBuf, File) {
         let file_name = format!("{}-{}.cgns", fn_name!(), id);
         let path = dir.join(file_name);
         let file = library.open(path.clone(), OpenFileMode::Write).unwrap();
@@ -140,7 +140,7 @@ mod tests {
 
     #[test]
     fn can_write_cgns_file() {
-        let library = Library::new().unwrap();
+        let library = LibraryHandle::acquire();
         let (p, f) = cgns_file(&library, testdir!(), 0);
         f.close().unwrap();
         assert!(p.is_file());
@@ -148,7 +148,7 @@ mod tests {
 
     #[test]
     fn can_open_cgns_file() {
-        let library = Library::new().unwrap();
+        let library = LibraryHandle::acquire();
         let (p, f) = cgns_file(&library, testdir!(), 1);
         f.close().unwrap();
         assert!(p.is_file());

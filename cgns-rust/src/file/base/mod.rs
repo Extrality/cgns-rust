@@ -101,13 +101,13 @@ mod tests {
     use super::super::tests::*;
     use super::*;
     use crate::file::OpenFileMode;
-    use crate::library::Library;
+    use crate::library::LibraryHandle;
 
     #[test]
     fn can_write_base() {
         let name_hw = "HelloWorld".to_string();
         let name_zz = "zozo".to_string();
-        let library = Library::new().unwrap();
+        let library = LibraryHandle::acquire();
 
         // 1. Can I write bases ?
         let (p, f) = cgns_file(&library, testdir!(), 0);

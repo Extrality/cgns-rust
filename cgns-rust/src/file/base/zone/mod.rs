@@ -234,7 +234,7 @@ mod tests {
     use testdir::testdir;
 
     use super::*;
-    use crate::{file::tests::cgns_file, library::Library};
+    use crate::{file::tests::cgns_file, library::LibraryHandle};
 
     #[test]
     fn can_write_zone() {
@@ -250,7 +250,7 @@ mod tests {
             cells: &[11, 11, 11],
             bound_vertices: &[0, 0, 0],
         };
-        let lib = Library::new().unwrap();
+        let lib = LibraryHandle::acquire();
 
         // 1. Can I write zones ?
         let (_p, f) = cgns_file(&lib, testdir!(), 0);

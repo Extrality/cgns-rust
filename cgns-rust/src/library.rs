@@ -13,15 +13,14 @@ pub static LIB_IN_USE: AtomicBool = AtomicBool::new(false);
 
 /// represents access to the CGNS library. Only one instance can exist at a time
 /// due to the design of the CGNS library
-pub struct Library {
+pub struct LibraryHandle {
     _phantom: PhantomData<*const ()>,
 }
 
-impl Library {
-    pub fn new() -> Result<Self, &'static str> {
-        Self::take()
-    }
-    pub fn take() -> Result<Self, &'static str> {
+impl LibraryHandle {
+    /// Try to acquire a unique instance of [`LibraryHandle`].
+    /// Returns [`Err`] if another thread has already aquired a handle.
+    pub fn try_acquire() -> Result<Self, &'static str> {
         if LIB_IN_USE
             .compare_exchange(false, true, Ordering::Acquire, Ordering::Acquire)
             .is_err()
@@ -34,6 +33,33 @@ impl Library {
         }
     }
 
+    /// Acquires a unique instance of [`LibraryHandle`] by spin-locking.
+    pub fn acquire() -> Self {
+        let base_sleep_dur = std::time::Duration::from_millis(10);
+        let mut sleep_multiplier = 0;
+
+        while LIB_IN_USE
+            .compare_exchange(false, true, Ordering::Acquire, Ordering::Acquire)
+            .is_err()
+        {
+            std::thread::sleep(base_sleep_dur * sleep_multiplier);
+            sleep_multiplier = (sleep_multiplier + 1).min(500);
+        }
+
+        Self {
+            _phantom: Default::default(),
+        }
+    }
+
+    /// # Safety
+    /// None. This is as dangerous as reading a mutex's contents without locking it.
+    pub unsafe fn fake_aquire() -> Self {
+        Self {
+            _phantom: Default::default(),
+        }
+    }
+
+    /// Open a [`File`].
     pub fn open<P>(&self, path: P, mode: OpenFileMode) -> Result<File>
     where
         P: AsRef<Path> + Sized,
@@ -41,7 +67,8 @@ impl Library {
         File::new(self, path, mode)
     }
 }
-impl Drop for Library {
+
+impl Drop for LibraryHandle {
     fn drop(&mut self) {
         if LIB_IN_USE
             .compare_exchange(true, false, Ordering::Release, Ordering::Relaxed)
@@ -51,8 +78,9 @@ impl Drop for Library {
         }
     }
 }
-impl std::fmt::Debug for Library {
+
+impl std::fmt::Debug for LibraryHandle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        write!(f, "CGNSLib")
+        write!(f, "CGNSLibHandle")
     }
 }
