@@ -37,7 +37,7 @@ pub struct Section<'a> {
 }
 
 #[derive(Debug, Clone)]
-pub struct Connectivity {
+pub struct Elements {
     pub connectivity: Vec<i64>,
     pub offsets: Option<Vec<i64>>,
 }
@@ -46,7 +46,7 @@ pub struct Connectivity {
 /// Converts CGNS 3.3 style connectivity to CGNS 4 style (<https://cgns.github.io/ProposedExtensions/NGON-CPEX-0041-v0.16.pdf>).
 ///
 /// Returns the new length of `connectivity`.
-fn fix_missing_connectivity_offsets(
+fn fix_missing_elements_offsets(
     connectivity: &mut [i64],
     offsets: &mut [i64],
     elem_type: ElementType_t,
@@ -91,9 +91,9 @@ fn fix_missing_connectivity_offsets(
 }
 
 impl<'a> Section<'a> {
-    /// Whether the connectivity is composed of `connectivity` and `offsets` or not
+    /// Whether the element connectivity is composed of `connectivity` and `offsets` or not
     #[inline]
-    pub fn connectivity_has_offsets(&self) -> bool {
+    pub fn elements_have_offsets(&self) -> bool {
         matches!(
             self.elem_type,
             ElementType_t::MIXED | ElementType_t::NGON_n | ElementType_t::NFACE_n
@@ -105,13 +105,13 @@ impl<'a> Section<'a> {
     ///
     /// Because of an issue in the CGNS lib (caused by CGNS 3.4.1),
     /// the length of the connectivity might change and is returned by this function.
-    pub fn read_connectivity_to_buff(
+    pub fn read_elements_to_buff(
         &self,
         connectivity: &mut [i64],
         mut offsets: Option<&mut [i64]>,
     ) -> Result<usize> {
         const CONTROL_PATTERN: [i64; 2] = [1337, 420];
-        if self.connectivity_has_offsets() {
+        if self.elements_have_offsets() {
             if let Some(offsets) = &offsets {
                 if offsets.len() != self.offsets_len() as usize {
                     return Err(anyhow!(
@@ -156,7 +156,7 @@ impl<'a> Section<'a> {
         if let Some(offsets) = offsets {
             if offsets.starts_with(&CONTROL_PATTERN[..2.min(offsets.len())]) {
                 final_connectivity_size =
-                    fix_missing_connectivity_offsets(connectivity, offsets, self.elem_type)
+                    fix_missing_elements_offsets(connectivity, offsets, self.elem_type)
                         .context("Could not rebuild missing offsets array")?;
             }
         }
@@ -165,18 +165,18 @@ impl<'a> Section<'a> {
     }
 
     /// Read the element connectivity
-    pub fn read_connectivity(&self) -> Result<Connectivity> {
-        let has_offsets = self.connectivity_has_offsets();
+    pub fn read_elements(&self) -> Result<Elements> {
+        let has_offsets = self.elements_have_offsets();
         let mut connectivity = vec![0; self.data_size()? as usize];
         let mut offsets = if has_offsets {
             Some(vec![0; self.offsets_len() as usize])
         } else {
             None
         };
-        let conn_len = self.read_connectivity_to_buff(&mut connectivity, offsets.as_deref_mut())?;
+        let conn_len = self.read_elements_to_buff(&mut connectivity, offsets.as_deref_mut())?;
         connectivity.truncate(conn_len);
 
-        Ok(Connectivity {
+        Ok(Elements {
             connectivity,
             offsets,
         })
@@ -263,10 +263,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_fix_missing_connectivity_offsets() {
+    fn test_fix_missing_elements_offsets() {
         let mut connectivity = [3, 1, 2, 3, 4, 3, 2, 1, 4, 4, 4, 3, 2, 1, 2, 1, 2];
         let mut offsets = [0, 0, 0, 0, 0];
-        let new_conn_len = fix_missing_connectivity_offsets(
+        let new_conn_len = fix_missing_elements_offsets(
             &mut connectivity,
             &mut offsets,
             ElementType_t::NGON_n,
