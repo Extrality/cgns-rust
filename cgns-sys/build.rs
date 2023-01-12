@@ -100,5 +100,6 @@ where
     if assert_success && !success {
         panic!("Command was not successful: {:?}", command);
     }
+    log!("Command {:?} finished with success: {}", command, success);
     success
 }

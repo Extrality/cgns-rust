@@ -28,7 +28,7 @@ pub struct Section<'a> {
     pub elem_start: i64,
     /// Index of last element in the section.
     pub elem_end: i64,
-    /// "Index of last boundary element in the section. Set to zero if the elements are unsorted.""
+    /// "Index of last boundary element in the section. Set to zero if the elements are unsorted."
     pub nbndry: i32, // ???
     /// For boundary or interface elements, the parent_data array contains information on the cell(s) and cell face(s) sharing the element.
     pub has_parent_data: bool,
@@ -266,12 +266,9 @@ mod tests {
     fn test_fix_missing_elements_offsets() {
         let mut connectivity = [3, 1, 2, 3, 4, 3, 2, 1, 4, 4, 4, 3, 2, 1, 2, 1, 2];
         let mut offsets = [0, 0, 0, 0, 0];
-        let new_conn_len = fix_missing_elements_offsets(
-            &mut connectivity,
-            &mut offsets,
-            ElementType_t::NGON_n,
-        )
-        .unwrap();
+        let new_conn_len =
+            fix_missing_elements_offsets(&mut connectivity, &mut offsets, ElementType_t::NGON_n)
+                .unwrap();
         assert_eq!(new_conn_len, 13);
         assert_eq!(
             &connectivity[..new_conn_len],

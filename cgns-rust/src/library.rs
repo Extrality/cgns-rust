@@ -52,7 +52,7 @@ impl LibraryHandle {
     }
 
     /// # Safety
-    /// None. This is as dangerous as reading a mutex's contents without locking it.
+    /// None. Extremely dangerous.
     pub unsafe fn fake_aquire() -> Self {
         Self {
             _phantom: Default::default(),

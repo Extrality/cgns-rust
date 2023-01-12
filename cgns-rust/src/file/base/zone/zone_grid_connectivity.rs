@@ -1,4 +1,6 @@
 //! TODO:
+//! Handles multi-zones interfaces: <https://cgns.github.io/CGNS_docs_current/sids/conv.html#interfaces>.
+//!
 //! <https://cgns.github.io/CGNS_docs_current/midlevel/timedep.html#zconn>
 
 // ier = cg_nzconns(int fn, int B, int Z, int *nzconns);
