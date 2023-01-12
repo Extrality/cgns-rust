@@ -22,7 +22,7 @@ pub fn npe(elem_id: u32) -> Result<i64> {
 /// CGNS node `Elements_t`
 pub struct Section<'a> {
     pub name: String,
-    /// Type of enclose elements
+    /// Type of enclosed elements.
     pub elem_type: ElementType_t,
     /// Index of first element in the section.
     pub elem_start: i64,
@@ -91,7 +91,7 @@ fn fix_missing_elements_offsets(
 }
 
 impl<'a> Section<'a> {
-    /// Whether the element connectivity is composed of `connectivity` and `offsets` or not
+    /// Whether the element connectivity is composed of `connectivity` and `offsets` or not.
     #[inline]
     pub fn elements_have_offsets(&self) -> bool {
         matches!(
@@ -101,7 +101,7 @@ impl<'a> Section<'a> {
     }
 
     /// A method to read connectivity values directly to a buffer, to avoid copying large amount of data.
-    /// See [`Self::read_connectivity()`].
+    /// See [`Self::read_elements()`].
     ///
     /// Because of an issue in the CGNS lib (caused by CGNS 3.4.1),
     /// the length of the connectivity might change and is returned by this function.
@@ -182,24 +182,26 @@ impl<'a> Section<'a> {
         })
     }
 
-    /// Get point per face of an element type
+    /// Get point per face of an element type.
     #[inline]
     pub fn npe(&self) -> Result<i64> {
         npe(self.elem_type as u32)
     }
 
+    /// Number of elements in the section.
     #[inline]
     pub fn size(&self) -> i64 {
         // +1 because CGNS arrays start at one
         self.elem_end - self.elem_start + 1
     }
 
+    /// Elements offsets length ([`Self::size()`] + 1).
     #[inline]
     pub fn offsets_len(&self) -> i64 {
         self.size() + 1
     }
 
-    /// Connectivity length
+    /// Element connectivity length.
     #[inline]
     pub fn data_size(&self) -> Result<i64> {
         let mut data_size = 0;

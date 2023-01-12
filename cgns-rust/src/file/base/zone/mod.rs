@@ -74,7 +74,7 @@ impl<'a> Zone<'a> {
         self.iter()
     }
 
-    pub fn iter_elements(&'a self) -> Result<CGNSNodeIterator<'a, Section<'a>>> {
+    pub fn iter_sections(&'a self) -> Result<CGNSNodeIterator<'a, Section<'a>>> {
         self.iter()
     }
 
