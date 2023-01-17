@@ -51,14 +51,6 @@ impl LibraryHandle {
         }
     }
 
-    /// # Safety
-    /// None. Extremely dangerous.
-    pub unsafe fn fake_aquire() -> Self {
-        Self {
-            _phantom: Default::default(),
-        }
-    }
-
     /// Open a [`File`].
     pub fn open<P>(&self, path: P, mode: OpenFileMode) -> Result<File>
     where
