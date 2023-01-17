@@ -139,7 +139,7 @@ mod tests {
     }
 
     #[test]
-    fn can_write_cgns_file() {
+    fn can_create_cgns_file() {
         let library = LibraryHandle::acquire();
         let (p, f) = cgns_file(&library, testdir!(), 0);
         f.close().unwrap();
