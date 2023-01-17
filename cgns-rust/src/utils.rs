@@ -24,12 +24,11 @@ pub(crate) fn string2bytes(str: &str) -> Result<CString> {
     Ok(cstr)
 }
 
-/// Equivalent to `copy_from_slice()` but only requires `dest.len() >= src.len()`
-/// (instead of `src.len() == dst.len()`).
+/// Equivalent to `copy_from_slice()` without the requirement `src.len() == dst.len()`.
 #[inline]
-pub(crate) fn copy_from_partial_slice<T: Copy>(dst: &mut [T], src: &[T]) {
-    debug_assert!(src.len() > dst.len());
-    dst[..src.len()].copy_from_slice(src)
+pub(crate) fn copy_from_mismatched_slice<T: Copy>(dst: &mut [T], src: &[T]) {
+    let len = dst.len().min(src.len());
+    dst[..len].copy_from_slice(&src[..len])
 }
 
 /// EZ wrapper for CGNS functions that return `ier`

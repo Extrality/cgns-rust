@@ -8,7 +8,7 @@ use cgns_sys::*;
 use super::Zone;
 use crate::traits::CGNSNode;
 use crate::utils::{
-    bytes2string, copy_from_partial_slice, ier_cg_fn, Result, CGIO_NAME_BUFFER_LENGTH,
+    bytes2string, copy_from_mismatched_slice, ier_cg_fn, Result, CGIO_NAME_BUFFER_LENGTH,
 };
 
 /// Get point per face of an element type
@@ -137,7 +137,7 @@ impl<'a> Section<'a> {
         }
 
         let offset_ptr = if let Some(offsets) = &mut offsets {
-            copy_from_partial_slice(offsets, &CONTROL_PATTERN);
+            copy_from_mismatched_slice(offsets, &CONTROL_PATTERN);
             offsets.as_mut_ptr()
         } else {
             std::ptr::null_mut()
