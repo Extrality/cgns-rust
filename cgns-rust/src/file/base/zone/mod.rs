@@ -22,7 +22,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq)]
-/// CGNS node `Zone_t`
+/// CGNS node [`Zone_t`](https://cgns.github.io/CGNS_docs_current/sids/cgnsbase.html#Zone)
 pub struct Zone<'a> {
     pub name: String,
     raw_size: [i64; 9],
@@ -113,6 +113,11 @@ impl<'a> Zone<'a> {
 
     pub fn size(&self) -> ZoneSize {
         match (self.ztype, self.base.phys_dim) {
+            (ZoneType_t::Structured, 1) => ZoneSize {
+                vertices: &self.raw_size[0..1],
+                cells: &self.raw_size[1..2],
+                bound_vertices: &self.raw_size[2..3],
+            },
             (ZoneType_t::Structured, 2) => ZoneSize {
                 vertices: &self.raw_size[0..2],
                 cells: &self.raw_size[2..4],
@@ -128,11 +133,14 @@ impl<'a> Zone<'a> {
                 cells: &self.raw_size[1..2],
                 bound_vertices: &self.raw_size[2..3],
             },
-            _ => ZoneSize {
-                vertices: &[],
-                cells: &[],
-                bound_vertices: &[],
-            },
+            z @ _ => {
+                println!("Invalid zone type or size: {:?}", z); // TODO
+                ZoneSize {
+                    vertices: &[],
+                    cells: &[],
+                    bound_vertices: &[],
+                }
+            }
         }
     }
 

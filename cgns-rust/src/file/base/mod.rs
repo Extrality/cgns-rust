@@ -12,7 +12,9 @@ use crate::traits::{CGNSNode, CGNSNodeIterator, CGNSParent};
 use crate::utils::{bytes2string, ier_cg_fn, string2bytes, Result, CGIO_NAME_BUFFER_LENGTH};
 
 #[derive(Debug, Clone, PartialEq)]
-/// CGNS node `CGNSBase_t`
+/// CGNS node [`CGNSBase_t`](https://cgns.github.io/CGNS_docs_current/sids/cgnsbase.html)
+///
+/// The master CGNS node. Most `File`s have a single `Base` (fittingly named `Base`).
 pub struct Base<'a> {
     pub name: String,
     /// Dimension of the cells

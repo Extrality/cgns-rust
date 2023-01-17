@@ -8,7 +8,7 @@ use cgns_sys::*;
 use super::FlowSolution;
 use crate::traits::{CGNSNode, Read};
 use crate::utils::bytes2string;
-use crate::utils::{ier_cg_fn, Result, CGIO_NAME_BUFFER_LENGTH};
+use crate::utils::{copy_from_partial_slice, ier_cg_fn, Result, CGIO_NAME_BUFFER_LENGTH};
 
 #[derive(Debug, Clone)]
 /// CGNS node `DataArray_t` under a `FlowSolution_t`
@@ -85,11 +85,11 @@ impl<'a> Field<'a> {
 
     pub fn size(&self) -> [i64; 3] {
         let mut range_max = [1; 3];
-        let zs = &self.flow_solution.zone.size();
+        let zone_size = &self.flow_solution.zone.size();
         let grid_location = self.location();
         match grid_location {
-            GridLocation_t::Vertex => range_max[..zs.vertices.len()].copy_from_slice(zs.vertices),
-            GridLocation_t::CellCenter => range_max[..zs.cells.len()].copy_from_slice(zs.cells),
+            GridLocation_t::Vertex => copy_from_partial_slice(&mut range_max, zone_size.vertices),
+            GridLocation_t::CellCenter => copy_from_partial_slice(&mut range_max, zone_size.cells),
             _ => panic!("Cannot get size of field located at {:?}", grid_location),
         }
         range_max
