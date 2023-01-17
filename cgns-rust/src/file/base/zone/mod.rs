@@ -133,7 +133,7 @@ impl<'a> Zone<'a> {
                 cells: &self.raw_size[1..2],
                 bound_vertices: &self.raw_size[2..3],
             },
-            z @ _ => {
+            z => {
                 println!("Invalid zone type or size: {:?}", z); // TODO
                 ZoneSize {
                     vertices: &[],
