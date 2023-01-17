@@ -12,12 +12,15 @@ macro_rules! log {
 }
 
 #[derive(Debug)]
-struct ParseCallbacks ();
+struct ParseCallbacks();
 
 impl bindgen::callbacks::ParseCallbacks for ParseCallbacks {
     fn add_derives(&self, info: &bindgen::callbacks::DeriveInfo<'_>) -> Vec<String> {
         if info.name == "ElementType_t" {
-            vec!["num_derive::FromPrimitive".into(), "num_derive::ToPrimitive".into()]
+            vec![
+                "num_derive::FromPrimitive".into(),
+                "num_derive::ToPrimitive".into(),
+            ]
         } else {
             vec![]
         }
@@ -32,25 +35,24 @@ fn main() {
     let mut path_cgns_build = path_cgns.clone(); // dummy value
 
     if !path_cgns.join(".git").exists() {
-        run("git", |command| {
+        run("git", true, |command| {
             command
                 .arg("clone")
                 .arg(format!("--branch={}", TAG))
                 .arg("--recursive")
                 .arg("https://github.com/CGNS/CGNS.git")
-                .arg(&path_cgns)
+                .arg(&path_cgns);
         });
     } else {
-        run("git", |command| {
-            command.current_dir(&path_cgns).arg("fetch")
-        });
-        run("git", |command| {
-            command
-                .current_dir(&path_cgns)
-                .arg("reset")
-                .arg("--hard")
-                .arg(TAG)
-        });
+        let git_reset_hard_cmd = |cmd: &mut Command| {
+            cmd.current_dir(&path_cgns).args(["reset", "--hard", TAG]);
+        };
+        if !run("git", false, git_reset_hard_cmd) {
+            run("git", true, |cmd| {
+                cmd.current_dir(&path_cgns).arg("fetch");
+            });
+            run("git", true, git_reset_hard_cmd);
+        }
     }
 
     if static_link {
@@ -62,7 +64,6 @@ fn main() {
             path_cgns_build.join("lib").display()
         );
         println!("cargo:rustc-link-lib=static=cgns");
-        // Cargo doesn't respect dynamic dependencies when it links statically
         println!("cargo:rustc-link-lib=hdf5");
     } else {
         println!("cargo:rustc-link-lib=cgns");
@@ -85,15 +86,20 @@ fn main() {
         .expect("write bindings.rs");
 }
 
-fn run<F>(name: &str, mut configure: F)
+fn run<F>(name: &str, assert_success: bool, mut configure: F) -> bool
 where
-    F: FnMut(&mut Command) -> &mut Command,
+    F: FnMut(&mut Command),
 {
     let mut command = Command::new(name);
-    let configured = configure(&mut command);
-    log!("Executing {:?}", configured);
-    match configured.status() {
-        Ok(s) if !s.success() => panic!("failed to execute {:?}", configured),
-        _ => log!("Command {:?} finished successfully", configured),
+    configure(&mut command);
+    log!("Executing {:?}", command);
+    let success = match command.status() {
+        Err(_) => panic!("Could not execute {:?}", command),
+        Ok(s) => s.success(),
+    };
+    if assert_success && !success {
+        panic!("Command was not successful: {:?}", command);
     }
+    log!("Command {:?} finished with success: {}", command, success);
+    success
 }

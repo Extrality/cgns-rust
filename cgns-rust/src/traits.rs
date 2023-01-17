@@ -1,6 +1,6 @@
 use core::ffi;
 
-use anyhow::Result;
+use crate::utils::Result;
 
 pub trait CGNSNode<'a>: Sized {
     type Parent;
@@ -19,6 +19,10 @@ pub trait CGNSParent<'a, C: CGNSNode<'a, Parent = Self>>: CGNSNode<'a> {
             current: 0,
             len: self.num_child()?,
         })
+    }
+
+    fn get(&'a self, id: usize) -> Result<C> {
+        C::from_id(self, id as i32)
     }
 }
 

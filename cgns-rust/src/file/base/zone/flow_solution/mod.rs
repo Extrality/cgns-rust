@@ -2,16 +2,12 @@
 
 pub mod field;
 
-use std::ffi;
-
-use anyhow::{anyhow, Result};
 use cgns_sys::*;
 
 use self::field::Field;
-use crate::traits::{CGNSNode, CGNSParent};
-use crate::utils::{bytes2string, ier_cg_fn, CGNSError, CGIO_NAME_BUFFER_LENGTH};
-
 use super::Zone;
+use crate::traits::{CGNSNode, CGNSParent};
+use crate::utils::{bytes2string, ier_cg_fn, Result, CGIO_NAME_BUFFER_LENGTH};
 
 #[derive(Debug, Clone)]
 /// CGNS node `FlowSolution_t`
