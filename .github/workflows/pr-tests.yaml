@@ -1,0 +1,33 @@
+name: Tests
+
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libhdf5-103 libhdf5-dev gcc clang cmake git
+          sudo ln -s /usr/lib/x86_64-linux-gnu/libhdf5_serial.so.103.3.0 /usr/lib/x86_64-linux-gnu/libhdf5.so
+          sudo ldconfig
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: actions/checkout@v4
+      - name: Cargo fmt
+        run: cargo fmt --all -- --check
+      - name: Run test suite
+        run: cargo test
+
+
+  lint:
+    name: Typos
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Check spelling
+      uses: crate-ci/typos@v1.0.4

@@ -3,7 +3,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
-const TAG: &str = "v4.3.0";
+const TAG: &str = "v4.4.0";
 
 macro_rules! log {
     ($fmt:expr) => (println!(concat!("cgns-sys/build.rs:{}: ", $fmt), line!()));

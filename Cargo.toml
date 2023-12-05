@@ -1,7 +1,6 @@
 [workspace]
-
 members = [
     "cgns-sys",
     "cgns-rust",
 ]
-
+resolver = "2"
