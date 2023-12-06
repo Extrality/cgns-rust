@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use super::file::{File, OpenFileMode};
 use super::utils::Result;
 
-/// Assures at runtime that the Library struct is not instanciated twice
+/// Assures at runtime that the Library struct is not instantiated twice
 pub static LIB_IN_USE: AtomicBool = AtomicBool::new(false);
 
 /// represents access to the CGNS library. Only one instance can exist at a time
@@ -19,7 +19,7 @@ pub struct LibraryHandle {
 
 impl LibraryHandle {
     /// Try to acquire a unique instance of [`LibraryHandle`].
-    /// Returns [`Err`] if another thread has already aquired a handle.
+    /// Returns [`Err`] if another thread has already acquired a handle.
     pub fn try_acquire() -> Result<Self, &'static str> {
         if LIB_IN_USE
             .compare_exchange(false, true, Ordering::Acquire, Ordering::Acquire)
