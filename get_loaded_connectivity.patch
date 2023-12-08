@@ -1,0 +1,63 @@
+diff --git a/src/cgnslib.c b/src/cgnslib.c
+index 43580b5..a1f4000 100644
+--- a/src/cgnslib.c
++++ b/src/cgnslib.c
+@@ -5437,6 +5437,34 @@ int cg_poly_elements_read(int fn, int B, int Z, int S, cgsize_t *elements,
+     return CG_OK;
+ }
+ 
++
++/*----------------------------------------------------------------------*/
++/**
++ * \ingroup ElementConnectivity
++ *
++ * \brief  Returns pointers to element data (elements and connectivity)
++ *
++ * \param[in] fn \FILE_fn
++ * \param[in] B  \B_Base
++ * \param[in] Z  \Z_Zone
++ * \param[in] S  \CONN_S
++ * \param[out] parent_data  For boundary or interface elements, this array contains information on the cell(s) and cell face(s) sharing the element. If you do not need to read the ParentData when reading the ElementData, you may set the value to NULL.
++ * \return \ier
++ *
++ */
++struct s_element_connectivity custom_poly_elements_get(int fn, int B, int Z, int S) {
++    cgns_section *section;
++    struct s_element_connectivity data = {NULL, NULL};
++
++    section = cgi_get_section(cg, B, Z, S);
++    if (section != NULL) {
++        data.elements = section->connect->data;
++        data.connect_offset = section->connect_offset->data;
++    }
++    return data;
++}
++
++
+ /*----------------------------------------------------------------------*/
+ 
+ /**
+diff --git a/src/cgnslib.h b/src/cgnslib.h
+index 3f32567..0e0df4b 100644
+--- a/src/cgnslib.h
++++ b/src/cgnslib.h
+@@ -1000,6 +1000,11 @@ CGNSDLL int cg_coord_general_write(int fn, int B, int Z,
+  *      Read and write Elements_t Nodes                                  *
+ \* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+ 
++struct s_element_connectivity {
++    cgsize_t* elements;
++    cgsize_t* connect_offset;
++};
++
+ CGNSDLL int cg_nsections(int file_number, int B, int Z, int *nsections);
+ CGNSDLL int cg_section_read(int file_number, int B, int Z, int S,
+ 	char *SectionName,  CGNS_ENUMT(ElementType_t) *type,
+@@ -1008,6 +1013,7 @@ CGNSDLL int cg_elements_read(int file_number, int B, int Z, int S,
+ 	cgsize_t *elements, cgsize_t *parent_data);
+ CGNSDLL int cg_poly_elements_read(int file_number, int B, int Z, int S,
+ 	cgsize_t *elements, cgsize_t *connect_offset, cgsize_t *parent_data);
++CGNSDLL struct s_element_connectivity custom_poly_elements_get(int file_number, int B, int Z, int S);
+ CGNSDLL int cg_section_write(int file_number, int B, int Z,
+ 	const char * SectionName, CGNS_ENUMT(ElementType_t) type,
+ 	cgsize_t start, cgsize_t end, int nbndry, const cgsize_t * elements,
