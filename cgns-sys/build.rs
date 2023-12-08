@@ -40,6 +40,8 @@ fn main() {
                 .arg("clone")
                 .arg(format!("--branch={}", TAG))
                 .arg("--recursive")
+                .arg("--depth=1")
+                .arg("--single-branch")
                 .arg("https://github.com/CGNS/CGNS.git")
                 .arg(&path_cgns);
         });
@@ -68,8 +70,9 @@ fn main() {
     } else {
         println!("cargo:rustc-link-lib=cgns");
     }
+    let bindings_path = PathBuf::from(env::var("OUT_DIR").unwrap());
 
-    let bindings = bindgen::Builder::default()
+    bindgen::Builder::default()
         .clang_arg(format!("-F{}", path_cgns_src.display()))
         .clang_arg(format!("-F{}", path_cgns_build.join("include").display()))
         .header(path_cgns_src.join("cgnslib.h").to_str().unwrap())
@@ -79,11 +82,9 @@ fn main() {
         .parse_callbacks(Box::new(ParseCallbacks()))
         .size_t_is_usize(true)
         .generate()
-        .expect("generate bindings");
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
-    bindings
-        .write_to_file(out_path.join("bindings.rs"))
-        .expect("write bindings.rs");
+        .expect("generate bindings")
+        .write_to_file(bindings_path.join("cgnslib.rs"))
+        .expect("could no write cgnslib bindings file");
 }
 
 fn run<F>(name: &str, assert_success: bool, mut configure: F) -> bool
