@@ -10,9 +10,10 @@ pub enum CGNSError {
     /// Error during FFI type conversion
     #[error("Error in FFI interface: {0}")]
     FFIError(FFIError),
-    /// Catch-all error type (to phase out)
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
+    #[error("Invalid file: {0}")]
+    InvalidFileError(String),
+    #[error("Not possible using this library, use cgns-sys: {0}")]
+    LibraryLimitationError(String),
 }
 
 /// Allows building a CGNSError from any FFIError member

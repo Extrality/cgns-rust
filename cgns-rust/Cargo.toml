@@ -8,7 +8,6 @@ repository = "https://github.com/extrality/cgns-rust"
 
 [dependencies]
 cgns-sys = { path = "../cgns-sys" }
-anyhow = "1.0.64"
 thiserror = "1.0.0"
 num_enum = "0.7.0"
 

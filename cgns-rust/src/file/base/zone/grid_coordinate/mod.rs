@@ -4,7 +4,6 @@ pub mod coords;
 
 use std::ffi;
 
-use anyhow::anyhow;
 use cgns_sys::*;
 
 use self::coords::Coordinates;
@@ -102,10 +101,9 @@ impl<'a> CGNSNode<'a> for GridCoordinates<'a> {
 impl<'a> CGNSParent<'a, Coordinates<'a>> for GridCoordinates<'a> {
     fn num_child(&self) -> Result<i32> {
         if self.id > 1 {
-            return Err(anyhow!(
-                "Can only read one GridCoordinates_t node. Use cgns-sys to read more."
-            )
-            .into());
+            return Err(crate::CGNSError::LibraryLimitationError(
+                "Can only read one GridCoordinates_t node.".to_string(),
+            ));
         }
         let mut number = 0;
         ier_cg_fn!(cg_ncoords(

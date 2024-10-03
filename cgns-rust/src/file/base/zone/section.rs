@@ -2,7 +2,6 @@
 //!
 //! Based on: <https://cgns.github.io/CGNS_docs_current/midlevel/grid.html#elements>
 
-use anyhow::{anyhow, Context};
 use cgns_sys::*;
 
 use super::Zone;
@@ -10,6 +9,7 @@ use crate::traits::CGNSNode;
 use crate::utils::{
     bytes2string, copy_from_mismatched_slice, ier_cg_fn, Result, CGIO_NAME_BUFFER_LENGTH,
 };
+use crate::CGNSError;
 
 /// Get point per face of an element type
 #[inline]
@@ -81,11 +81,9 @@ fn fix_missing_elements_offsets(
             idx_connect
         }
         _ => {
-            return Err(anyhow!(
-                "Invalid elem type for missing connectivity offset: {:?}",
-                elem_type
-            )
-            .into())
+            return Err(CGNSError::InvalidFileError(format!(
+                "Invalid elem type for missing connectivity offset: {elem_type:?}"
+            )));
         }
     };
 
@@ -116,24 +114,22 @@ impl<'a> Section<'a> {
         if self.elements_have_offsets() {
             if let Some(offsets) = &offsets {
                 if offsets.len() != self.offsets_len() as usize {
-                    return Err(anyhow!(
+                    return Err(CGNSError::InvalidFileError(format!(
                         "Offset buffer is of len {} but should be {}",
                         offsets.len(),
                         self.size()
-                    )
-                    .into());
+                    )));
                 }
             } else {
-                return Err(anyhow!("Offset buffer is required but is None").into());
+                return Err(CGNSError::InvalidFileError("Offset buffer is required but is None".to_string()));
             }
         }
         if connectivity.len() != self.data_size()? as usize {
-            return Err(anyhow!(
+            return Err(CGNSError::InvalidFileError(format!(
                 "Connectivity buffer is of len {} but should be {}",
                 connectivity.len(),
                 self.data_size()?
-            )
-            .into());
+            )));
         }
 
         let offset_ptr = if let Some(offsets) = &mut offsets {
@@ -157,8 +153,13 @@ impl<'a> Section<'a> {
         if let Some(offsets) = offsets {
             if offsets.starts_with(&CONTROL_PATTERN[..2.min(offsets.len())]) {
                 final_connectivity_size =
-                    fix_missing_elements_offsets(connectivity, offsets, self.elem_type)
-                        .context("Could not rebuild missing offsets array")?;
+                    fix_missing_elements_offsets(connectivity, offsets, self.elem_type).map_err(
+                        |e| {
+                            CGNSError::InvalidFileError(format!(
+                                "Could not rebuild missing offsets array: {e}"
+                            ))
+                        },
+                    )?;
             }
         }
 

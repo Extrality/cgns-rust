@@ -9,3 +9,4 @@ pub mod traits;
 mod utils;
 
 pub use cgns_sys;
+pub use errors::CGNSError;
