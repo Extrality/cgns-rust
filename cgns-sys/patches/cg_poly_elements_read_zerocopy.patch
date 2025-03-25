@@ -1,0 +1,89 @@
+diff --git i/src/cgnslib.c w/src/cgnslib.c
+index d60daf6..81f6ddb 100644
+--- i/src/cgnslib.c
++++ w/src/cgnslib.c
+@@ -4263,6 +4263,71 @@ int cg_poly_elements_read(int file_number, int B, int Z, int S, cgsize_t *elemen
+     return CG_OK;
+ }
+ 
++/*----------------------------------------------------------------------*/
++/**
++ * \ingroup ElementConnectivity
++ *
++ * \brief  Read element data without memcpy, if possible
++ *
++ * \param[in] fn \FILE_fn
++ * \param[in] B  \B_Base
++ * \param[in] Z  \Z_Zone
++ * \param[in] S  \CONN_S
++ * \param[out] elements  Element connectivity data. The element connectivity order is given in Element Numbering Conventions.
++ * \param[out] connect_offset  Element connectivity offset data. This is required for NGON_n, NFACE_n and MIXED according to Elements_t Structure Definition.
++ * \return \ier
++ *
++ */
++int cg_poly_elements_read_zerocopy(int fn, int B, int Z, int S, cgsize_t **elements,
++                     cgsize_t **connect_offset)
++{
++    cgns_section *section;
++    cgsize_t count, num, ElementDataSize=0, ConnectOffsetSize=0;
++    cgsize_t *offset_data=0;
++
++    cg = cgi_get_file(fn);
++    if (cg == 0) return CG_ERROR;
++
++     /* verify input */
++    if (cgi_check_mode(cg->filename, cg->mode, CG_MODE_READ)) return CG_ERROR;
++
++    section = cgi_get_section(cg, B, Z, S);
++    if (section == 0) return CG_ERROR;
++
++     /* cgns_internals takes care of adjusting for version */
++    ElementDataSize = section->connect->dim_vals[0];
++
++     /* Double check ElementDataSize (not necessary) */
++    if (section->connect_offset && section->connect_offset->data &&
++        0 == strcmp(CG_SIZE_DATATYPE, section->connect_offset->data_type)) {
++        offset_data = section->connect_offset->data;
++    }
++
++    num = section->range[1] - section->range[0] +1;
++    count = cgi_element_data_size(section->el_type, num,
++                                  section->connect->data, offset_data);
++    if (count < 0) return CG_ERROR;
++    if (count && count != ElementDataSize) {
++        cgi_error("Error in recorded element connectivity array...");
++        return CG_ERROR;
++    }
++
++    if (section->connect->data &&
++            0 == strcmp(CG_SIZE_DATATYPE, section->connect->data_type)) {
++        *elements = section->connect->data;
++    }
++
++    if (connect_offset && section->connect_offset) {
++        ConnectOffsetSize  = section->connect_offset->dim_vals[0];
++        if (section->connect_offset->data &&
++                0 == strcmp(CG_SIZE_DATATYPE, section->connect_offset->data_type)) {
++            *connect_offset = section->connect_offset->data;
++        }
++    }
++
++    return CG_OK;
++}
++
+ /*----------------------------------------------------------------------*/
+ int cg_elements_partial_read(int file_number, int B, int Z, int S,
+                              cgsize_t start, cgsize_t end, cgsize_t *elements,
+diff --git i/src/cgnslib.h w/src/cgnslib.h
+index 476c768..ba69422 100644
+--- i/src/cgnslib.h
++++ w/src/cgnslib.h
+@@ -1008,6 +1008,8 @@ CGNSDLL int cg_elements_read(int file_number, int B, int Z, int S,
+ 	cgsize_t *elements, cgsize_t *parent_data);
+ CGNSDLL int cg_poly_elements_read(int file_number, int B, int Z, int S,
+ 	cgsize_t *elements, cgsize_t *connect_offset, cgsize_t *parent_data);
++CGNSDLL int cg_poly_elements_read_zerocopy(int file_number, int B, int Z, int S,
++	cgsize_t **elements, cgsize_t **connect_offset);
+ CGNSDLL int cg_section_write(int file_number, int B, int Z,
+ 	const char * SectionName, CGNS_ENUMT(ElementType_t) type,
+ 	cgsize_t start, cgsize_t end, int nbndry, const cgsize_t * elements,

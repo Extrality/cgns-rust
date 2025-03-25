@@ -55,6 +55,14 @@ fn main() {
         }
     }
 
+    for patch in fs::read_dir("./patches").unwrap() {
+        let path = patch.unwrap().path().canonicalize().expect("Can't get canonical path to patch");
+        log!("Applying patch: {:?}", path);
+        run("git", true, |cmd| {
+            cmd.current_dir(&path_cgns).arg("apply").arg(&path);
+        });
+    }
+
     if static_link {
         fs::create_dir_all(&path_cgns_build).unwrap();
         path_cgns_build = cmake::Config::new(path_cgns).pic(true).build();
