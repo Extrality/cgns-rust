@@ -2,13 +2,13 @@
 authors = ["Arthur Woimbée <awoimbee@extrality.ai>"]
 name = "cgns-rust"
 version = "0.0.5"
-edition = "2021"
+edition = "2024"
 description = "Wrapper around cgns-sys."
 repository = "https://github.com/extrality/cgns-rust"
 
 [dependencies]
 cgns-sys = { path = "../cgns-sys" }
-thiserror = "1.0.0"
+thiserror = "2.0.0"
 num_enum = "0.7.0"
 
 [dev-dependencies]

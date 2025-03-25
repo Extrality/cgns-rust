@@ -3,7 +3,7 @@ authors = ["Arthur Woimbée <awoimbee@extrality.ai>"]
 build = "build.rs"
 name = "cgns-sys"
 version = "0.0.4"
-edition = "2021"
+edition = "2024"
 description = "Bindings to cgns."
 repository = "https://github.com/extrality/cgns-rust"
 
@@ -16,5 +16,5 @@ num-traits = "0.2"
 num-derive = "0.4"
 
 [build-dependencies]
-bindgen = "^0.69"
+bindgen = "^0.71"
 cmake = "0.1"
