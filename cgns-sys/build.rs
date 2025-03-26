@@ -30,9 +30,9 @@ impl bindgen::callbacks::ParseCallbacks for ParseCallbacks {
 fn main() {
     let static_link = !cfg!(feature = "dynamic");
 
-    let path_cgns = PathBuf::from(std::env::var_os("OUT_DIR").unwrap()).join("CGNS");
+    let path_out_dir = PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
+    let path_cgns = path_out_dir.join("CGNS");
     let path_cgns_src = path_cgns.join("src");
-    let mut path_cgns_build = path_cgns.clone(); // dummy value
 
     if !path_cgns.join(".git").exists() {
         run("git", true, |command| {
@@ -63,10 +63,9 @@ fn main() {
         });
     }
 
+    let mut path_cgns_build = path_out_dir; // dummy value
     if static_link {
-        fs::create_dir_all(&path_cgns_build).unwrap();
         path_cgns_build = cmake::Config::new(path_cgns).pic(true).build();
-
         println!(
             "cargo:rustc-link-search=native={}",
             path_cgns_build.join("lib").display()
@@ -80,18 +79,19 @@ fn main() {
     let bindings = bindgen::Builder::default()
         .clang_arg(format!("-F{}", path_cgns_src.display()))
         .clang_arg(format!("-F{}", path_cgns_build.join("include").display()))
-        .header(path_cgns_src.join("cgnslib.h").to_str().unwrap())
         .default_enum_style(bindgen::EnumVariation::Rust {
             non_exhaustive: true,
         })
         .parse_callbacks(Box::new(ParseCallbacks()))
         .size_t_is_usize(true)
+        .header(path_cgns_src.join("cgnslib.h").to_str().unwrap())
         .generate()
-        .expect("generate bindings");
+        .expect("Could not generate cgnslib bindings");
+
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
     bindings
-        .write_to_file(out_path.join("bindings.rs"))
-        .expect("write bindings.rs");
+        .write_to_file(out_path.join("cgnslib.rs"))
+        .expect("Could not write cgnslib.rs");
 }
 
 fn run<F>(name: &str, assert_success: bool, mut configure: F) -> bool

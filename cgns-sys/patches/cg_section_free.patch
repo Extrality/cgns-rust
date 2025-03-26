@@ -1,0 +1,42 @@
+diff --git i/src/cgnslib.c w/src/cgnslib.c
+index d60daf6..d596b79 100644
+--- i/src/cgnslib.c
++++ w/src/cgnslib.c
+@@ -3478,6 +3478,25 @@ int cg_section_read(int file_number, int B, int Z, int S, char *SectionName,
+     return CG_OK;
+ }
+ 
++/**
++ * Unsafe function to free section data,
++ * Because older CGNS files cause high mem usage due to connectivity foramt change
++ */
++int cg_section_free_unsafe(int file_number, int B, int Z, int S) {
++    cgns_section *section = cgi_get_section(cg, B, Z, S);
++    if (section == 0) return CG_ERROR;
++    if (section->connect && section->connect->data != NULL) {
++        free(section->connect->data);
++        section->connect->data = NULL;
++    }
++    if (section->connect_offset && section->connect_offset->data != NULL) {
++        free(section->connect_offset->data);
++        section->connect_offset->data = NULL;
++    }
++    free_parent_data(section);
++    return CG_OK;
++}
++
+ int cg_section_write(int file_number, int B, int Z, const char * SectionName,
+                      CGNS_ENUMT(ElementType_t)type, cgsize_t start, cgsize_t end,
+                      int nbndry, const cgsize_t * elements,
+diff --git i/src/cgnslib.h w/src/cgnslib.h
+index 476c768..5911998 100644
+--- i/src/cgnslib.h
++++ w/src/cgnslib.h
+@@ -1021,6 +1021,7 @@ CGNSDLL int cg_section_general_write(int file_number, int B, int Z,
+         const CGNS_ENUMT(DataType_t) elementDataType, cgsize_t start,
+         cgsize_t end, cgsize_t elementDataSize, int nbndry, int *S);
+ CGNSDLL int cg_section_initialize(int file_number, int B, int Z, int S);
++CGNSDLL int cg_section_free_unsafe(int file_number, int B, int Z, int S);
+ 
+ CGNSDLL int cg_parent_data_write(int file_number, int B, int Z, int S,
+ 	const cgsize_t * parent_data);
