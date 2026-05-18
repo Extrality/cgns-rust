@@ -6,6 +6,7 @@ version = "0.0.4"
 edition = "2024"
 description = "Bindings to cgns."
 repository = "https://github.com/extrality/cgns-rust"
+licensing = "MIT"
 
 [features]
 # Static linking is preferred since distributions still package 32bit CGNS bins

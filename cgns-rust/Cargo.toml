@@ -5,6 +5,7 @@ version = "0.0.5"
 edition = "2024"
 description = "Wrapper around cgns-sys."
 repository = "https://github.com/extrality/cgns-rust"
+licensing = "MIT"
 
 [dependencies]
 cgns-sys = { path = "../cgns-sys" }
