@@ -9,7 +9,7 @@ use cgns_sys::*;
 use self::coords::Coordinates;
 use super::Zone;
 use crate::traits::{CGNSNode, CGNSParent};
-use crate::utils::{bytes2string, ier_cg_fn, string2bytes, Result, CGIO_NAME_BUFFER_LENGTH};
+use crate::utils::{CGIO_NAME_BUFFER_LENGTH, Result, bytes2string, ier_cg_fn, string2bytes};
 
 #[derive(Debug, Clone)]
 /// CGNS node `GridCoordinates_t`

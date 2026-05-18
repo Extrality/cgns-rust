@@ -9,6 +9,7 @@ repository = "https://github.com/extrality/cgns-rust"
 
 [features]
 # Static linking is preferred since distributions still package 32bit CGNS bins
+# Pay attention to licensing !
 dynamic = []
 
 [dependencies]
@@ -16,5 +17,5 @@ num-traits = "0.2"
 num-derive = "0.4"
 
 [build-dependencies]
-bindgen = "^0.71"
+bindgen = "^0.72"
 cmake = "0.1"

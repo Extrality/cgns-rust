@@ -52,7 +52,7 @@ impl LibraryHandle {
     }
 
     /// Open a [`File`].
-    pub fn open<P>(&self, path: P, mode: OpenFileMode) -> Result<File>
+    pub fn open<'l, P>(&'l self, path: P, mode: OpenFileMode) -> Result<File<'l>>
     where
         P: AsRef<Path> + Sized,
     {

@@ -15,10 +15,10 @@ use self::flow_solution::FlowSolution;
 use self::grid_coordinate::GridCoordinates;
 use self::section::Section;
 use super::Base;
-use crate::utils::{ier_cg_fn, string2bytes, CGIO_NAME_BUFFER_LENGTH};
+use crate::utils::{CGIO_NAME_BUFFER_LENGTH, ier_cg_fn, string2bytes};
 use crate::{
     traits::{CGNSNode, CGNSNodeIterator, CGNSParent},
-    utils::{bytes2string, Result},
+    utils::{Result, bytes2string},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -111,7 +111,7 @@ impl<'a> Zone<'a> {
         })
     }
 
-    pub fn size(&self) -> ZoneSize {
+    pub fn size(&'a self) -> ZoneSize<'a> {
         match (self.ztype, self.base.phys_dim) {
             (ZoneType_t::Structured, 1) => ZoneSize {
                 vertices: &self.raw_size[0..1],

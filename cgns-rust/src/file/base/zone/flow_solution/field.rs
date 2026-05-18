@@ -8,7 +8,7 @@ use cgns_sys::*;
 use super::FlowSolution;
 use crate::traits::{CGNSNode, Read};
 use crate::utils::bytes2string;
-use crate::utils::{copy_from_mismatched_slice, ier_cg_fn, Result, CGIO_NAME_BUFFER_LENGTH};
+use crate::utils::{CGIO_NAME_BUFFER_LENGTH, Result, copy_from_mismatched_slice, ier_cg_fn};
 
 #[derive(Debug, Clone)]
 /// CGNS node `DataArray_t` under a `FlowSolution_t`

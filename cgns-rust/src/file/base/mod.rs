@@ -9,7 +9,7 @@ use cgns_sys::*;
 use self::zone::Zone;
 use super::File;
 use crate::traits::{CGNSNode, CGNSNodeIterator, CGNSParent};
-use crate::utils::{bytes2string, ier_cg_fn, string2bytes, Result, CGIO_NAME_BUFFER_LENGTH};
+use crate::utils::{CGIO_NAME_BUFFER_LENGTH, Result, bytes2string, ier_cg_fn, string2bytes};
 
 #[derive(Debug, Clone, PartialEq)]
 /// CGNS node [`CGNSBase_t`](https://cgns.github.io/CGNS_docs_current/sids/cgnsbase.html)

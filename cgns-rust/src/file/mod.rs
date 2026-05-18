@@ -13,7 +13,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use self::base::Base;
 use crate::library::LibraryHandle;
 use crate::traits::{CGNSNode, CGNSNodeIterator, CGNSParent};
-use crate::utils::{ier_cg_fn, Result};
+use crate::utils::{Result, ier_cg_fn};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct File<'l> {
@@ -76,7 +76,7 @@ impl<'l> File<'l> {
         Ok(())
     }
 
-    pub fn iter_bases(&self) -> Result<CGNSNodeIterator<Base>> {
+    pub fn iter_bases(&'l self) -> Result<CGNSNodeIterator<'l, Base<'l>>> {
         self.iter()
     }
 }

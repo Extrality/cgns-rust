@@ -5,16 +5,16 @@
 use cgns_sys::*;
 
 use super::Zone;
+use crate::CGNSError;
 use crate::traits::CGNSNode;
 use crate::utils::{
-    bytes2string, copy_from_mismatched_slice, ier_cg_fn, Result, CGIO_NAME_BUFFER_LENGTH,
+    CGIO_NAME_BUFFER_LENGTH, Result, bytes2string, copy_from_mismatched_slice, ier_cg_fn,
 };
-use crate::CGNSError;
 
 /// Get point per face of an element type
 #[inline]
 pub fn npe(elem_id: u32) -> Result<i64> {
-    let elem_type = unsafe { std::mem::transmute(elem_id) };
+    let elem_type = unsafe { std::mem::transmute::<u32, cgns_sys::ElementType_t>(elem_id) };
     let mut npe = 0;
     ier_cg_fn!(cg_npe(elem_type, &mut npe))?;
     Ok(npe as i64)
@@ -121,7 +121,9 @@ impl<'a> Section<'a> {
                     )));
                 }
             } else {
-                return Err(CGNSError::InvalidFileError("Offset buffer is required but is None".to_string()));
+                return Err(CGNSError::InvalidFileError(
+                    "Offset buffer is required but is None".to_string(),
+                ));
             }
         }
         if connectivity.len() != self.data_size()? as usize {
@@ -150,17 +152,17 @@ impl<'a> Section<'a> {
             std::ptr::null_mut()
         ))?;
         let mut final_connectivity_size = connectivity.len();
-        if let Some(offsets) = offsets {
-            if offsets.starts_with(&CONTROL_PATTERN[..2.min(offsets.len())]) {
-                final_connectivity_size =
-                    fix_missing_elements_offsets(connectivity, offsets, self.elem_type).map_err(
-                        |e| {
-                            CGNSError::InvalidFileError(format!(
-                                "Could not rebuild missing offsets array: {e}"
-                            ))
-                        },
-                    )?;
-            }
+        if let Some(offsets) = offsets
+            && offsets.starts_with(&CONTROL_PATTERN[..2.min(offsets.len())])
+        {
+            final_connectivity_size = fix_missing_elements_offsets(
+                connectivity,
+                offsets,
+                self.elem_type,
+            )
+            .map_err(|e| {
+                CGNSError::InvalidFileError(format!("Could not rebuild missing offsets array: {e}"))
+            })?;
         }
 
         Ok(final_connectivity_size)
