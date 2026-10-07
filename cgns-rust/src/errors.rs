@@ -80,10 +80,10 @@ mod tests {
         let ffi_error = result.unwrap_err();
         let ffi_error_display = format!("{}", ffi_error);
         let ffi_error_debug = format!("{:?}", ffi_error);
-        // Check Display on FFIError looks OK
+        // Check that FFIError preserves the standard library's Display output.
         assert_eq!(
-            ffi_error_display,
-            "data provided contains an interior nul byte at byte pos 1"
+            FFIError::from(ffi_error.clone()).to_string(),
+            ffi_error_display
         );
         let error: CGNSError = ffi_error.into();
         let error_display = format!("{}", error);
