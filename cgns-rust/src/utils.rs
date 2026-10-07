@@ -1,4 +1,7 @@
 use std::ffi::{self, CString};
+#[cfg(unix)]
+use std::os::unix::ffi::OsStrExt;
+use std::path::Path;
 
 use crate::errors::CGNSError;
 
@@ -22,6 +25,22 @@ pub(crate) fn string2bytes(str: &str) -> Result<CString> {
     let bytes = str.into_bytes();
     let cstr = CString::from_vec_with_nul(bytes)?;
     Ok(cstr)
+}
+
+/// Convert a path to the narrow string accepted by CGNS without lossy replacement.
+pub(crate) fn path2bytes(path: &Path) -> Result<CString> {
+    // Unix paths are arbitrary bytes; keep non-UTF-8 filenames intact.
+    #[cfg(unix)]
+    let bytes = path.as_os_str().as_bytes();
+
+    // CGNS accepts char*, not Windows UTF-16 strings.
+    #[cfg(not(unix))]
+    let bytes = path
+        .to_str()
+        .ok_or_else(|| CGNSError::InvalidFileError("Path cannot be represented as UTF-8".into()))?
+        .as_bytes();
+
+    Ok(CString::new(bytes)?)
 }
 
 /// Equivalent to `copy_from_slice()` without the requirement `src.len() == dst.len()`.
@@ -48,3 +67,51 @@ macro_rules! ier_cg_fn {
 }
 
 pub(crate) use ier_cg_fn;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::errors::FFIError;
+
+    #[test]
+    fn path_conversion_preserves_utf8() {
+        for name in [
+            "mesh.cgns",
+            "dir with spaces/mesh.cgns",
+            "maillage-é-🦀.cgns",
+        ] {
+            assert_eq!(
+                path2bytes(Path::new(name)).unwrap().to_bytes(),
+                name.as_bytes()
+            );
+        }
+    }
+
+    #[test]
+    fn path_conversion_rejects_nul() {
+        assert!(matches!(
+            path2bytes(Path::new("mesh\0.cgns")),
+            Err(CGNSError::FFIError(FFIError::Null(_)))
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn path_conversion_preserves_non_utf8_unix_paths() {
+        let bytes = b"mesh-\xff.cgns";
+        let path = Path::new(ffi::OsStr::from_bytes(bytes));
+        assert_eq!(path2bytes(path).unwrap().to_bytes(), bytes);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn path_conversion_rejects_unpaired_surrogates() {
+        use std::os::windows::ffi::OsStringExt;
+
+        let name = ffi::OsString::from_wide(&[0xd800]);
+        assert!(matches!(
+            path2bytes(Path::new(&name)),
+            Err(CGNSError::InvalidFileError(_))
+        ));
+    }
+}

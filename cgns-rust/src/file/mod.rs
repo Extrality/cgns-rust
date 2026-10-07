@@ -4,7 +4,6 @@ pub mod base;
 
 use std::ffi;
 use std::marker::PhantomData;
-use std::os::unix::prelude::OsStrExt;
 use std::path::Path;
 
 use cgns_sys::*;
@@ -13,7 +12,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use self::base::Base;
 use crate::library::LibraryHandle;
 use crate::traits::{CGNSNode, CGNSNodeIterator, CGNSParent};
-use crate::utils::{Result, ier_cg_fn};
+use crate::utils::{Result, ier_cg_fn, path2bytes};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct File<'l> {
@@ -40,7 +39,7 @@ impl<'l> File<'l> {
         let path = path.as_ref();
         let mut cg_fn = 0;
         let mut version = 0.;
-        let raw_path = ffi::CString::new(path.as_os_str().as_bytes()).unwrap();
+        let raw_path = path2bytes(path)?;
         let mode: u32 = mode.into();
         ier_cg_fn!(cg_open(raw_path.as_ptr(), mode as i32, &mut cg_fn,))?;
         ier_cg_fn!(cg_version(cg_fn, &mut version))?;
@@ -55,7 +54,7 @@ impl<'l> File<'l> {
     /// Save the CGNS file.
     /// `copy_links` determines whether links are left intact or replaced by a copy of the associated data in the new file.
     pub fn save_as<P: AsRef<Path>>(&self, path: P, copy_links: bool) -> Result {
-        let path = ffi::CString::new(path.as_ref().as_os_str().as_bytes())?;
+        let path = path2bytes(path.as_ref())?;
         ier_cg_fn!(cg_save_as(
             self.id,
             path.as_ptr(),
@@ -129,8 +128,8 @@ mod tests {
     }
 
     /// returns a CGNS file in [`OpenFileMode::Modify`] mode.
-    pub fn cgns_file(library: &LibraryHandle, dir: PathBuf, id: u32) -> (PathBuf, File) {
-        let file_name = format!("{}-{}.cgns", fn_name!(), id);
+    pub fn cgns_file(library: &LibraryHandle, dir: PathBuf, id: u32) -> (PathBuf, File<'_>) {
+        let file_name = format!("{}-{}.cgns", fn_name!().replace("::", "-"), id);
         let path = dir.join(file_name);
         let file = library.open(path.clone(), OpenFileMode::Write).unwrap();
         file.close().unwrap();
@@ -144,6 +143,39 @@ mod tests {
         let (p, f) = cgns_file(&library, testdir!(), 0);
         f.close().unwrap();
         assert!(p.is_file());
+    }
+
+    #[test]
+    fn invalid_paths_return_errors() {
+        use crate::errors::{CGNSError, FFIError};
+
+        let library = LibraryHandle::acquire();
+        assert!(matches!(
+            library.open("mesh\0.cgns", OpenFileMode::Write),
+            Err(CGNSError::FFIError(FFIError::Null(_)))
+        ));
+        let (_, file) = cgns_file(&library, testdir!(), 2);
+        assert!(matches!(
+            file.save_as("mesh\0.cgns", false),
+            Err(CGNSError::FFIError(FFIError::Null(_)))
+        ));
+        file.close().unwrap();
+    }
+
+    #[test]
+    fn can_save_as_cgns_file() {
+        let library = LibraryHandle::acquire();
+        let dir = testdir!();
+        let (_, file) = cgns_file(&library, dir.clone(), 3);
+        let copy_path = dir.join("copy with spaces.cgns");
+        file.save_as(&copy_path, false).unwrap();
+        file.close().unwrap();
+        assert!(copy_path.is_file());
+        library
+            .open(copy_path, OpenFileMode::Read)
+            .unwrap()
+            .close()
+            .unwrap();
     }
 
     #[test]

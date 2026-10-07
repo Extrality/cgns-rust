@@ -70,8 +70,8 @@ fn main() {
     }
 
     let bindings = bindgen::Builder::default()
-        .clang_arg(format!("-F{}", path_cgns_src.display()))
-        .clang_arg(format!("-F{}", path_cgns_build.join("include").display()))
+        .clang_arg(format!("-I{}", path_cgns_src.display()))
+        .clang_arg(format!("-I{}", path_cgns_build.join("include").display()))
         .header(path_cgns_src.join("cgnslib.h").to_str().unwrap())
         .default_enum_style(bindgen::EnumVariation::Rust {
             non_exhaustive: true,
