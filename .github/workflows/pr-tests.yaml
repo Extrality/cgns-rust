@@ -14,7 +14,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libhdf5-dev gcc clang cmake git pkg-config
-          echo "LIBRARY_PATH=$(pkg-config --variable=libdir hdf5)${LIBRARY_PATH:+:$LIBRARY_PATH}" >> "$GITHUB_ENV"
+          hdf5_library_flags="$(pkg-config --libs-only-L hdf5)"
+          for flag in $hdf5_library_flags; do
+            LIBRARY_PATH="${flag#-L}${LIBRARY_PATH:+:$LIBRARY_PATH}"
+          done
+          test -n "${LIBRARY_PATH:-}"
+          echo "LIBRARY_PATH=$LIBRARY_PATH" >> "$GITHUB_ENV"
       - uses: actions-rust-lang/setup-rust-toolchain@v1
       - uses: actions/checkout@v4
       - name: Cargo fmt
